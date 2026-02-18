@@ -1,6 +1,11 @@
 # Plan: Remove HPS Section from Grade Entry
 
-## Status: PENDING
+## Status: ✅ COMPLETED
+
+## Completed Tasks
+- ✅ Removed "3. HPS per Assessment Type" section from Grade Entry in admin_portal.html
+- ✅ The HPS configuration now only comes from "Assessment & HPS" section
+- ✅ Committed and pushed changes to GitHub (branch: main)
 
 ## Information Gathered
 - **admin_portal.html** contains the "Grade Entry" section with an HPS configuration section

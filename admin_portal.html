@@ -1263,12 +1263,6 @@
           store.hps.perAssessment = {};
         }
         save();
-
-        // Initialize quiz and PT fields for grade entry
-        renderQuizFields();
-        renderPTFields();
-
-        updateGradesSummary();
       }
 
       function showSection(id) {
@@ -2882,6 +2876,9 @@
 
       // Render dynamic quiz fields based on count
       function renderQuizFields() {
+        // Skip if elements don't exist (HPS section was removed)
+        if (!document.getElementById("quizCount")) return;
+
         var count = parseInt(document.getElementById("quizCount").value) || 4;
         var container = document.getElementById("quizFieldsContainer");
         var courseId = parseInt(
@@ -2975,7 +2972,10 @@
 
       // Render dynamic Quiz HPS fields
       function renderQuizHpsFields(count) {
+        // Skip if container doesn't exist (HPS section was removed)
         var container = document.getElementById("quizHpsContainer");
+        if (!container) return;
+
         var defaultHps = store.hps ? store.hps.quiz : 50;
 
         // Get course-specific HPS if available
@@ -3015,6 +3015,9 @@
 
       // Render dynamic PT fields based on count
       function renderPTFields() {
+        // Skip if elements don't exist (HPS section was removed)
+        if (!document.getElementById("ptCount")) return;
+
         var count = parseInt(document.getElementById("ptCount").value) || 4;
         var container = document.getElementById("ptFieldsContainer");
         var courseId = parseInt(
@@ -3108,7 +3111,10 @@
 
       // Render dynamic PT HPS fields
       function renderPtHpsFields(count) {
+        // Skip if container doesn't exist (HPS section was removed)
         var container = document.getElementById("ptHpsContainer");
+        if (!container) return;
+
         var defaultHps = store.hps ? store.hps.pt : 100;
 
         // Get course-specific HPS if available
@@ -3315,6 +3321,15 @@
       }
 
       function saveGrades() {
+        // Skip if elements don't exist (HPS section was removed)
+        // Grades are now saved from the Assessment & HPS section
+        if (!document.getElementById("quizCount")) {
+          // Just update grades summary if HPS section doesn't exist
+          updateGradesSummary();
+          alert("Grades saved!");
+          return;
+        }
+
         // Save per-assessment HPS values for the selected course
         var courseId = parseInt(
           document.getElementById("gradeCourseSelect").value,

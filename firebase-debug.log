@@ -1,0 +1,22 @@
+[debug] [2026-02-17T16:18:23.918Z] ----------------------------------------------------------------------
+[debug] [2026-02-17T16:18:23.920Z] Command:       /Users/teacherjonas/.nvm/versions/node/v24.9.0/bin/node /Users/teacherjonas/.nvm/versions/node/v24.9.0/bin/firebase deploy --project studentgradetracker-e04c0 --debug
+[debug] [2026-02-17T16:18:23.921Z] CLI Version:   15.6.0
+[debug] [2026-02-17T16:18:23.921Z] Platform:      darwin
+[debug] [2026-02-17T16:18:23.921Z] Node Version:  v24.9.0
+[debug] [2026-02-17T16:18:23.921Z] Time:          Wed Feb 18 2026 00:18:23 GMT+0800 (Philippine Standard Time)
+[debug] [2026-02-17T16:18:23.921Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-02-17T16:18:23.922Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-02-17T16:18:24.615Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-17T16:18:24.622Z] Error: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.
+    at GoogleAuth.getApplicationDefaultAsync (/Users/teacherjonas/.nvm/versions/node/v24.9.0/lib/node_modules/firebase-tools/node_modules/google-auth-library/build/src/auth/googleauth.js:287:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async GoogleAuth._GoogleAuth_determineClient (/Users/teacherjonas/.nvm/versions/node/v24.9.0/lib/node_modules/firebase-tools/node_modules/google-auth-library/build/src/auth/googleauth.js:834:32)
+    at async GoogleAuth.getClient (/Users/teacherjonas/.nvm/versions/node/v24.9.0/lib/node_modules/firebase-tools/node_modules/google-auth-library/build/src/auth/googleauth.js:698:20)
+    at async GoogleAuth.getAccessToken (/Users/teacherjonas/.nvm/versions/node/v24.9.0/lib/node_modules/firebase-tools/node_modules/google-auth-library/build/src/auth/googleauth.js:722:24)
+    at async autoAuth (/Users/teacherjonas/.nvm/versions/node/v24.9.0/lib/node_modules/firebase-tools/lib/requireAuth.js:28:19)
+    at async requireAuth (/Users/teacherjonas/.nvm/versions/node/v24.9.0/lib/node_modules/firebase-tools/lib/requireAuth.js:90:20)
+    at async requirePermissions (/Users/teacherjonas/.nvm/versions/node/v24.9.0/lib/node_modules/firebase-tools/lib/requirePermissions.js:17:5)
+    at async /Users/teacherjonas/.nvm/versions/node/v24.9.0/lib/node_modules/firebase-tools/lib/command.js:264:17
+[error] 
+[error] Error: Failed to authenticate, have you run firebase login?

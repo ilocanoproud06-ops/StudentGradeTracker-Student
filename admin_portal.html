@@ -1369,6 +1369,17 @@
       }
 
       function showSection(id) {
+        // Check if trying to access grades section without Assessment & HPS
+        if (id === "grades") {
+          var hasAssessmentHps = checkAssessmentHpsConfigured();
+          if (!hasAssessmentHps) {
+            alert(
+              "Please configure Assessment & HPS first before entering grades!\n\nGo to: Assessment & HPS section to set up assessments and their Highest Possible Scores (HPS).",
+            );
+            // Still show the section but with a warning
+          }
+        }
+
         document
           .querySelectorAll(".section")
           .forEach((s) => s.classList.add("d-none"));
@@ -1382,6 +1393,8 @@
         if (id === "grades") {
           populateGradeSelects();
           updateGradesSummary();
+          // Check Assessment & HPS status and show warning if needed
+          checkGradeEntryAvailability();
         }
         // Initialize weight values when grading section is shown
         if (id === "grading") {
@@ -1411,6 +1424,86 @@
         if (id === "groups") {
           renderGroups();
           populateGroupCourseSelect();
+        }
+      }
+
+      // Check if Assessment & HPS is configured for any course
+      function checkAssessmentHpsConfigured() {
+        if (!store.hps || !store.hps.perAssessment) {
+          return false;
+        }
+
+        var courseKeys = Object.keys(store.hps.perAssessment);
+        if (courseKeys.length === 0) {
+          return false;
+        }
+
+        // Check if at least one course has assessments configured
+        for (var i = 0; i < courseKeys.length; i++) {
+          var courseHps = store.hps.perAssessment[courseKeys[i]];
+          if (
+            courseHps &&
+            (courseHps.written ||
+              courseHps.quiz ||
+              courseHps.pt ||
+              courseHps.project)
+          ) {
+            return true;
+          }
+        }
+
+        return false;
+      }
+
+      // Check if Assessment & HPS is configured for a specific course
+      function checkAssessmentHpsForCourse(courseId) {
+        if (!courseId) return false;
+
+        var courseKey = "course_" + courseId;
+        if (
+          !store.hps ||
+          !store.hps.perAssessment ||
+          !store.hps.perAssessment[courseKey]
+        ) {
+          return false;
+        }
+
+        var courseHps = store.hps.perAssessment[courseKey];
+        return (
+          courseHps.written ||
+          courseHps.quiz ||
+          courseHps.pt ||
+          courseHps.project
+        );
+      }
+
+      // Check grade entry availability and show warning
+      function checkGradeEntryAvailability() {
+        var courseId = parseInt(
+          document.getElementById("gradeCourseSelect")?.value,
+        );
+        var hasAssessmentHps = courseId
+          ? checkAssessmentHpsForCourse(courseId)
+          : checkAssessmentHpsConfigured();
+
+        var warningDiv = document.getElementById("gradeEntryWarning");
+        if (!warningDiv) {
+          // Create warning div if it doesn't exist
+          var gradesSection = document.getElementById("gradesSection");
+          var warningHtml =
+            '<div id="gradeEntryWarning" class="alert alert-warning mb-4 d-none">' +
+            '<i class="fas fa-exclamation-triangle me-2"></i>' +
+            "<strong>Assessment & HPS Not Configured!</strong> " +
+            'Please go to <a href="#" onclick="showSection(\'assessmentHps\')">Assessment & HPS</a> section to configure assessments and their Highest Possible Scores (HPS) before entering grades.' +
+            "</div>";
+          gradesSection.insertAdjacentHTML("afterbegin", warningHtml);
+          warningDiv = document.getElementById("gradeEntryWarning");
+        }
+
+        if (!hasAssessmentHps) {
+          warningDiv.classList.remove("d-none");
+        } else {
+          warningDiv.classList.add("d-none");
         }
       }
 
@@ -2172,6 +2265,18 @@
           return c.id === courseId;
         });
 
+        // Check if Assessment & HPS is configured for this course
+        if (courseId) {
+          var hasAssessmentHps = checkAssessmentHpsForCourse(courseId);
+          if (!hasAssessmentHps) {
+            alert(
+              "Warning: Assessment & HPS is not configured for this course!\n\nPlease go to 'Assessment & HPS' section and configure assessments for " +
+                (course ? course.code : "this course") +
+                " before entering grades.",
+            );
+          }
+        }
+
         // Show course schedule
         var scheduleDisplay = document.getElementById("courseScheduleDisplay");
         if (course) {
@@ -2240,6 +2345,9 @@
 
         // Render dynamic PT fields
         renderPTFields();
+
+        // Check Assessment & HPS status for grade entry
+        checkGradeEntryAvailability();
       }
 
       // Toggle project fields based on checkbox

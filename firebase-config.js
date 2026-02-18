@@ -1,18 +1,19 @@
 // ============================================
-// Student Grade Tracker - Enhanced Dual Storage Sync Manager
-// Works with both Firebase and localStorage seamlessly
-// GitHub Pages compatible with localStorage-first approach
+// Student Grade Tracker - Data Sharing Configuration
+// Works with localStorage, Firebase (optional), and shared data files
 // ============================================
-
-// Firebase SDK (loaded from CDN in HTML)
-let firebaseInitialized = false;
-let db = null;
-let auth = null;
 
 // Configuration
 const DB_KEY = "academic_grade_system_v1";
 const SYNC_STATUS_KEY = "academic_sync_status";
 const LAST_SYNC_KEY = "academic_last_sync";
+
+// Default shared data URL - admin can host this file on GitHub Pages
+// For example: https://yourusername.github.io/RepoName/shared-data.json
+const SHARED_DATA_URL = "data.json";
+
+// Check if Firebase SDK is loaded
+const isFirebaseSDKLoaded = typeof firebase !== 'undefined';
 
 // Firebase configuration (optional)
 const firebaseConfig = {
@@ -24,45 +25,32 @@ const firebaseConfig = {
   appId: "1:886408200590:web:c9fbdb028e5dcd442c64df"
 };
 
-// ============================================
-// Storage Mode Detection
-// ============================================
+let firebaseInitialized = false;
+let db = null;
+let auth = null;
 
-// Check if we're running on GitHub Pages or any static hosting
-const isGitHubPages = window.location.hostname.includes('github.io') || 
-                      window.location.hostname.includes('github.com');
-
-// Check if Firebase SDK is loaded
-const isFirebaseSDKLoaded = typeof firebase !== 'undefined';
-
-// Try to initialize Firebase (optional - won't break if it fails)
+// Try to initialize Firebase
 function initializeFirebase() {
   return new Promise((resolve) => {
-    // If Firebase SDK not loaded, resolve as unavailable
     if (!isFirebaseSDKLoaded) {
-      console.log("Firebase SDK not loaded - using localStorage only");
       resolve({ available: false, reason: 'sdk_not_loaded' });
       return;
     }
 
     try {
-      // Try to initialize Firebase
       const app = firebase.initializeApp(firebaseConfig);
       db = firebase.firestore();
       auth = firebase.auth();
       firebaseInitialized = true;
-      console.log("Firebase initialized successfully");
       resolve({ available: true, reason: 'success' });
     } catch (error) {
-      console.log("Firebase initialization failed:", error.message);
-      console.log("Using localStorage only - app will work offline");
       resolve({ available: false, reason: error.message });
     }
   });
 }
 
 // ============================================
-// Sync Status Management
+// Sync Manager with Multiple Storage Options
 // ============================================
 
 const SyncManager = {
@@ -71,20 +59,16 @@ const SyncManager = {
   firebaseInitResult: null,
   syncInProgress: false,
   lastSyncTime: null,
-  storageMode: 'local', // 'local', 'firebase', or 'hybrid'
+  storageMode: 'local',
   
-  // Initialize sync manager - localStorage first, Firebase optional
   async init() {
     // Try to initialize Firebase
     const initResult = await initializeFirebase();
     this.firebaseInitResult = initResult;
     this.firebaseAvailable = initResult.available;
     
-    // Determine storage mode - prioritize localStorage
-    // Only use Firebase if explicitly available AND user wants cloud sync
-    const preferCloud = localStorage.getItem('prefer_cloud_sync') === 'true';
-    
-    if (this.firebaseAvailable && this.isOnline && preferCloud) {
+    // Determine storage mode
+    if (this.firebaseAvailable && this.isOnline) {
       this.storageMode = 'firebase';
     } else {
       this.storageMode = 'local';
@@ -99,35 +83,23 @@ const SyncManager = {
     // Listen for online/offline events
     window.addEventListener('online', () => {
       this.isOnline = true;
-      console.log("Connection restored");
       this.updateStorageMode();
-      // Try to sync if Firebase was previously available and preferred
-      if (this.firebaseAvailable && localStorage.getItem('prefer_cloud_sync') === 'true') {
-        console.log("Syncing with Firebase...");
-        this.syncAll();
-      }
     });
     
     window.addEventListener('offline', () => {
       this.isOnline = false;
       this.storageMode = 'local';
-      console.log("Offline mode - using localStorage");
       this.updateStatusIndicator();
     });
     
-    console.log("SyncManager initialized. Mode:", this.storageMode, "Firebase:", this.firebaseAvailable, "Online:", this.isOnline);
-    
-    // Update any status indicators in the UI
+    console.log("SyncManager initialized. Mode:", this.storageMode);
     this.updateStatusIndicator();
     
     return this;
   },
   
-  // Update storage mode based on connectivity
   updateStorageMode() {
-    const preferCloud = localStorage.getItem('prefer_cloud_sync') === 'true';
-    
-    if (this.firebaseAvailable && this.isOnline && preferCloud) {
+    if (this.firebaseAvailable && this.isOnline) {
       this.storageMode = 'firebase';
     } else {
       this.storageMode = 'local';
@@ -135,9 +107,7 @@ const SyncManager = {
     this.updateStatusIndicator();
   },
   
-  // Update UI status indicators
   updateStatusIndicator() {
-    // Find and update status indicators
     const indicators = document.querySelectorAll('[data-sync-status]');
     indicators.forEach(el => {
       if (this.storageMode === 'firebase') {
@@ -149,100 +119,103 @@ const SyncManager = {
       }
     });
     
-    // Update storage mode display
     const modeDisplays = document.querySelectorAll('[data-storage-mode]');
     modeDisplays.forEach(el => {
       el.textContent = this.storageMode === 'firebase' ? 'Cloud Mode' : 'Local Mode';
     });
   },
   
-  // Get current sync status
   getStatus() {
     return {
       online: this.isOnline,
       firebase: this.firebaseAvailable,
       storageMode: this.storageMode,
       lastSync: this.lastSyncTime,
-      syncInProgress: this.syncInProgress,
-      initResult: this.firebaseInitResult
+      syncInProgress: this.syncInProgress
     };
   },
   
-  // ============================================
-  // Core Data Operations
-  // ============================================
-  
-  // Load all data - always from localStorage first (most reliable)
+  // Load data from multiple sources
   async loadData() {
     let store = this.getLocalData();
     
-    // Optionally try to load from Firebase if cloud sync is enabled
-    const preferCloud = localStorage.getItem('prefer_cloud_sync') === 'true';
-    
-    if (this.firebaseAvailable && this.isOnline && preferCloud) {
+    // Priority 1: Try Firebase if available
+    if (this.firebaseAvailable && this.isOnline) {
       try {
-        console.log("Loading data from Firebase...");
         const firebaseData = await this.loadFromFirebase();
         if (firebaseData && Object.keys(firebaseData).length > 0) {
-          // Check if Firebase has newer data
           const localTime = store && store._lastModified ? new Date(store._lastModified) : new Date(0);
           const firebaseTime = firebaseData._lastModified ? new Date(firebaseData._lastModified) : new Date(0);
           
           if (firebaseTime > localTime) {
-            console.log("Firebase data is newer, using Firebase data");
             store = firebaseData;
-            // Save to localStorage as backup
             this.saveLocalData(store);
-          } else {
-            console.log("Local data is newer or equal, using local data");
-            // Push local data to Firebase
-            await this.saveToFirebase(store);
           }
         }
       } catch (error) {
-        console.error("Error loading from Firebase:", error);
+        console.error("Firebase load error:", error);
       }
     }
     
-    // Ensure default structure
+    // Priority 2: If no local data, try to load from shared data file
+    if (!store || !store.students || store.students.length === 0) {
+      try {
+        const sharedData = await this.loadFromSharedFile();
+        if (sharedData && sharedData.students && sharedData.students.length > 0) {
+          console.log("Loading from shared data file...");
+          store = sharedData;
+          this.saveLocalData(store);
+        }
+      } catch (error) {
+        console.log("Shared data not available:", error.message);
+      }
+    }
+    
     return this.ensureDefaultStructure(store);
   },
   
-  // Save all data - always to localStorage, optionally to Firebase
+  // Load from a shared JSON file (for student access)
+  async loadFromSharedFile() {
+    return new Promise((resolve, reject) => {
+      // Try to load from data.json in the same directory
+      fetch('data.json')
+        .then(response => {
+          if (!response.ok) throw new Error('Data file not found');
+          return response.json();
+        })
+        .then(data => {
+          console.log("Loaded shared data successfully");
+          resolve(data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  },
+  
   async saveData(store) {
-    // Add timestamp for conflict resolution
     store._lastModified = new Date().toISOString();
-    
-    // Always save to localStorage (primary storage)
     this.saveLocalData(store);
     
-    // Save to Firebase if available, online, and cloud sync is enabled
-    const preferCloud = localStorage.getItem('prefer_cloud_sync') === 'true';
-    if (this.firebaseAvailable && this.isOnline && preferCloud) {
+    if (this.firebaseAvailable && this.isOnline) {
       try {
         await this.saveToFirebase(store);
         this.lastSyncTime = new Date();
         localStorage.setItem(LAST_SYNC_KEY, this.lastSyncTime.toISOString());
       } catch (error) {
-        console.error("Error saving to Firebase:", error);
+        console.error("Firebase save error:", error);
       }
     }
   },
   
-  // Quick save (for frequent operations like grade entry)
   async quickSave(store) {
     store._lastModified = new Date().toISOString();
     this.saveLocalData(store);
     
-    const preferCloud = localStorage.getItem('prefer_cloud_sync') === 'true';
-    if (this.firebaseAvailable && this.isOnline && preferCloud && !this.syncInProgress) {
+    if (this.firebaseAvailable && this.isOnline && !this.syncInProgress) {
       this.syncToFirebaseDebounced(store);
     }
   },
-  
-  // ============================================
-  // localStorage Operations (Primary Storage)
-  // ============================================
   
   getLocalData() {
     const data = localStorage.getItem(DB_KEY);
@@ -250,7 +223,7 @@ const SyncManager = {
       try {
         return JSON.parse(data);
       } catch (e) {
-        console.error("Error parsing localStorage data:", e);
+        console.error("Error parsing localStorage:", e);
       }
     }
     return null;
@@ -261,16 +234,8 @@ const SyncManager = {
       localStorage.setItem(DB_KEY, JSON.stringify(store));
     } catch (e) {
       console.error("Error saving to localStorage:", e);
-      // Handle quota exceeded
-      if (e.name === 'QuotaExceededError') {
-        alert("Storage quota exceeded! Please export your data and clear old records.");
-      }
     }
   },
-  
-  // ============================================
-  // Firebase Operations (Optional Cloud Storage)
-  // ============================================
   
   async loadFromFirebase() {
     if (!this.firebaseAvailable || !db) return null;
@@ -278,17 +243,13 @@ const SyncManager = {
     try {
       const store = {};
       
-      // Load collections
       const collections = ['courses', 'students', 'enrollments', 'assessments', 'groups'];
       for (const col of collections) {
         const snapshot = await db.collection(col).get();
         store[col] = [];
-        snapshot.forEach(doc => {
-          store[col].push(doc.data());
-        });
+        snapshot.forEach(doc => store[col].push(doc.data()));
       }
       
-      // Load grades (object, not array)
       const gradesSnapshot = await db.collection('grades').get();
       store.grades = {};
       gradesSnapshot.forEach(doc => {
@@ -298,7 +259,6 @@ const SyncManager = {
         store.grades[id] = data;
       });
       
-      // Load settings
       const hpsDoc = await db.collection('settings').doc('hps').get();
       if (hpsDoc.exists) store.hps = hpsDoc.data();
       
@@ -321,12 +281,10 @@ const SyncManager = {
     this.syncInProgress = true;
     
     try {
-      // Save collections
       const collections = ['courses', 'students', 'enrollments', 'assessments', 'groups'];
       
       for (const col of collections) {
         if (store[col] && Array.isArray(store[col])) {
-          // Clear and repopulate collection
           const snapshot = await db.collection(col).get();
           const deletes = snapshot.docs.map(d => d.ref.delete());
           await Promise.all(deletes);
@@ -338,7 +296,6 @@ const SyncManager = {
         }
       }
       
-      // Save grades
       if (store.grades) {
         const snapshot = await db.collection('grades').get();
         const deletes = snapshot.docs.map(d => d.ref.delete());
@@ -353,12 +310,11 @@ const SyncManager = {
         }
       }
       
-      // Save settings
       if (store.hps) await db.collection('settings').doc('hps').set(store.hps);
       if (store.weights) await db.collection('settings').doc('weights').set(store.weights);
       if (store.gradingScale) await db.collection('settings').doc('gradingScale').set({ scale: store.gradingScale });
       
-      console.log("Data synced to Firebase successfully");
+      console.log("Data synced to Firebase");
     } catch (error) {
       console.error("Error saving to Firebase:", error);
     } finally {
@@ -366,72 +322,14 @@ const SyncManager = {
     }
   },
   
-  // Debounced sync to prevent too many Firebase writes
   syncToFirebaseDebounced: (function() {
     let timeout = null;
     return function(store) {
       if (timeout) clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        SyncManager.saveToFirebase(store);
-      }, 2000); // Wait 2 seconds after last change
+      timeout = setTimeout(() => SyncManager.saveToFirebase(store), 2000);
     };
   })(),
   
-  // ============================================
-  // Full Sync (both directions)
-  // ============================================
-  
-  async syncAll() {
-    const preferCloud = localStorage.getItem('prefer_cloud_sync') === 'true';
-    if (!this.isOnline || !this.firebaseAvailable || !preferCloud) {
-      console.log("Cannot sync: offline, Firebase unavailable, or cloud sync disabled");
-      return;
-    }
-    
-    const localData = this.getLocalData();
-    const firebaseData = await this.loadFromFirebase();
-    
-    if (!localData && firebaseData) {
-      // Only Firebase has data - use Firebase
-      this.saveLocalData(firebaseData);
-    } else if (localData && !firebaseData) {
-      // Only local has data - push to Firebase
-      await this.saveToFirebase(localData);
-    } else if (localData && firebaseData) {
-      // Both have data - merge with last-write-wins
-      const merged = this.mergeData(localData, firebaseData);
-      this.saveLocalData(merged);
-      await this.saveToFirebase(merged);
-    }
-    
-    this.lastSyncTime = new Date();
-    localStorage.setItem(LAST_SYNC_KEY, this.lastSyncTime.toISOString());
-  },
-  
-  // Merge data from both sources (last-write-wins)
-  mergeData(local, remote) {
-    const merged = { ...local };
-    const localTime = local._lastModified ? new Date(local._lastModified) : new Date(0);
-    const remoteTime = remote._lastModified ? new Date(remote._lastModified) : new Date(0);
-    
-    if (remoteTime > localTime) {
-      // Remote is newer - prefer remote data but keep unique local items
-      Object.keys(remote).forEach(key => {
-        if (key !== '_lastModified') {
-          merged[key] = remote[key];
-        }
-      });
-    }
-    
-    merged._lastModified = new Date().toISOString();
-    return merged;
-  },
-  
-  // ============================================
-  // Export/Import for Manual Backup
-  // ============================================
-  
-  // Export data as JSON file
   exportData() {
     const store = this.getLocalData();
     const dataStr = JSON.stringify(store, null, 2);
@@ -446,11 +344,42 @@ const SyncManager = {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     
-    console.log("Data exported successfully");
+    console.log("Data exported");
     return true;
   },
   
-  // Import data from JSON file
+  // Export data that can be shared (for students to load)
+  exportSharedData() {
+    const store = this.getLocalData();
+    // Create a version with only essential data for students
+    const sharedData = {
+      students: store.students || [],
+      courses: store.courses || [],
+      enrollments: store.enrollments || [],
+      grades: store.grades || {},
+      assessments: store.assessments || [],
+      hps: store.hps || {},
+      weights: store.weights || {},
+      gradingScale: store.gradingScale || [],
+      _lastModified: new Date().toISOString()
+    };
+    
+    const dataStr = JSON.stringify(sharedData, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'data.json'; // Named for shared access
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    console.log("Shared data exported as data.json");
+    return true;
+  },
+  
   importData(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -458,22 +387,17 @@ const SyncManager = {
         try {
           const importedData = JSON.parse(e.target.result);
           
-          // Validate basic structure
           if (!importedData.courses || !importedData.students) {
-            reject(new Error("Invalid backup file format"));
+            reject(new Error("Invalid backup file"));
             return;
           }
           
-          // Save to localStorage
           this.saveLocalData(importedData);
           
-          // If Firebase is available and cloud sync enabled, also sync to Firebase
-          const preferCloud = localStorage.getItem('prefer_cloud_sync') === 'true';
-          if (this.firebaseAvailable && this.isOnline && preferCloud) {
+          if (this.firebaseAvailable && this.isOnline) {
             this.saveToFirebase(importedData);
           }
           
-          console.log("Data imported successfully");
           resolve(importedData);
         } catch (error) {
           reject(error);
@@ -483,10 +407,6 @@ const SyncManager = {
       reader.readAsText(file);
     });
   },
-  
-  // ============================================
-  // Default Data Structure
-  // ============================================
   
   ensureDefaultStructure(store) {
     return {
@@ -512,39 +432,12 @@ const SyncManager = {
       ],
       _lastModified: store?._lastModified || new Date().toISOString()
     };
-  },
-  
-  // ============================================
-  // Utility Functions
-  // ============================================
-  
-  // Clear all data
-  clearAllData() {
-    localStorage.removeItem(DB_KEY);
-    localStorage.removeItem(LAST_SYNC_KEY);
-    console.log("All local data cleared");
-  },
-  
-  // Get storage info
-  getStorageInfo() {
-    const data = localStorage.getItem(DB_KEY);
-    const size = data ? new Blob([data]).size : 0;
-    return {
-      usedBytes: size,
-      usedKB: (size / 1024).toFixed(2),
-      usedMB: (size / (1024 * 1024)).toFixed(2)
-    };
   }
 };
-
-// ============================================
-// Export for use in HTML files
-// ============================================
 
 window.SyncManager = SyncManager;
 window.DB_KEY = DB_KEY;
 
-// Auto-initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
   await SyncManager.init();
 });

@@ -1177,6 +1177,79 @@
         localStorage.setItem(DB_KEY, JSON.stringify(store));
       }
 
+      // ============================================
+      // Helper Functions for Assessment & HPS Integration
+      // ============================================
+
+      // Get assessment data for a specific course and type from Assessment & HPS section
+      function getAssessmentDataForCourse(courseId, type) {
+        if (!courseId || !type) {
+          return { assessments: [], hps: {} };
+        }
+
+        var courseKey = "course_" + courseId;
+
+        // Get assessments from store.assessments
+        var assessments = store.assessments.filter(function (a) {
+          return a.courseId === courseId && a.type === type;
+        });
+
+        // Get HPS from store.hps.perAssessment
+        var hpsData = {};
+        if (
+          store.hps &&
+          store.hps.perAssessment &&
+          store.hps.perAssessment[courseKey]
+        ) {
+          hpsData = store.hps.perAssessment[courseKey][type] || {};
+        }
+
+        // Map assessments to include their HPS values
+        var assessmentsWithHps = assessments.map(function (a) {
+          var hpsKey = a.subType || "a" + a.id;
+          return {
+            id: a.id,
+            subType: a.subType,
+            title: a.title,
+            month: a.month,
+            date: a.date,
+            hps: hpsData[hpsKey] || (type === "quiz" ? 50 : 100),
+          };
+        });
+
+        return { assessments: assessmentsWithHps, hps: hpsData };
+      }
+
+      // Get HPS value for a specific assessment
+      function getHpsForAssessment(courseId, type, subType) {
+        if (!courseId) return type === "quiz" ? 50 : 100;
+
+        var courseKey = "course_" + courseId;
+        if (
+          store.hps &&
+          store.hps.perAssessment &&
+          store.hps.perAssessment[courseKey]
+        ) {
+          var typeHps = store.hps.perAssessment[courseKey][type] || {};
+          return typeHps[subType] || (type === "quiz" ? 50 : 100);
+        }
+        return type === "quiz" ? 50 : 100;
+      }
+
+      // Get assessment count based on type
+      function getAssessmentCount(courseId, type) {
+        var data = getAssessmentDataForCourse(courseId, type);
+        if (data.assessments && data.assessments.length > 0) {
+          return data.assessments.length;
+        }
+        // Default counts based on type
+        if (type === "quiz") return 4;
+        if (type === "pt") return 4;
+        if (type === "project") return 2;
+        if (type === "written") return 4;
+        return 4;
+      }
+
       document.addEventListener("DOMContentLoaded", function () {
         // Show main content directly (authentication handled by admin_login.html)
         document.getElementById("mainContent").style.display = "flex";
@@ -2325,41 +2398,87 @@
             var key = student.id + "_" + courseId;
             var grades = store.grades[key] || {};
 
-            // Get scores based on exam type
+            // Get scores based on exam type - using dynamic titles from Assessment & HPS
             var scoresText = "";
             if (examType === "written") {
               var w = grades.written || { p: 0, m: 0, pf: 0, f: 0 };
+              // Get assessment titles from Assessment & HPS
+              var writtenData = getAssessmentDataForCourse(courseId, "written");
+              var writtenAssessments = {};
+              if (
+                writtenData.assessments &&
+                writtenData.assessments.length > 0
+              ) {
+                writtenData.assessments.forEach(function (a) {
+                  writtenAssessments[a.subType] = a.title;
+                });
+              }
+              var pTitle = writtenAssessments.p || "P";
+              var mTitle = writtenAssessments.m || "M";
+              var pfTitle = writtenAssessments.pf || "PF";
+              var fTitle = writtenAssessments.f || "F";
               scoresText =
-                "P: " +
+                pTitle +
+                ": " +
                 w.p +
-                " | M: " +
+                " | " +
+                mTitle +
+                ": " +
                 w.m +
-                " | PF: " +
+                " | " +
+                pfTitle +
+                ": " +
                 w.pf +
-                " | F: " +
+                " | " +
+                fTitle +
+                ": " +
                 w.f;
             } else if (examType === "quiz") {
               var q = grades.quiz || {};
               var quizCount = grades.quizCount || 4;
+              // Get quiz titles from Assessment & HPS
+              var quizData = getAssessmentDataForCourse(courseId, "quiz");
               var scoreArr = [];
               for (var i = 1; i <= quizCount; i++) {
-                scoreArr.push("Q" + i + ": " + (q["q" + i] || 0));
+                var quizTitle =
+                  (quizData.assessments[i - 1] &&
+                    quizData.assessments[i - 1].title) ||
+                  "Q" + i;
+                scoreArr.push(quizTitle + ": " + (q["q" + i] || 0));
               }
               scoresText = scoreArr.join(" | ");
             } else if (examType === "pt") {
               var p = grades.pt || { p1: 0, p2: 0, p3: 0, p4: 0 };
-              scoresText =
-                "PT1: " +
-                p.p1 +
-                " | PT2: " +
-                p.p2 +
-                " | PT3: " +
-                p.p3 +
-                " | PT4: " +
-                p.p4;
+              // Get PT titles from Assessment & HPS
+              var ptData = getAssessmentDataForCourse(courseId, "pt");
+              var ptCount =
+                ptData.assessments.length > 0 ? ptData.assessments.length : 4;
+              var scoreArr = [];
+              for (var i = 1; i <= ptCount; i++) {
+                var ptTitle =
+                  (ptData.assessments[i - 1] &&
+                    ptData.assessments[i - 1].title) ||
+                  "PT" + i;
+                scoreArr.push(ptTitle + ": " + (p["p" + i] || 0));
+              }
+              scoresText = scoreArr.join(" | ");
             } else if (examType === "project") {
-              var proj = grades.project || { p1: 0, p2: 0 };
-              scoresText = "Proj1: " + proj.p1 + " | Proj2: " + proj.p2;
+              var proj = grades.project || {};
+              // Get Project titles from Assessment & HPS
+              var projectData = getAssessmentDataForCourse(courseId, "project");
+              var projectCount =
+                projectData.assessments.length > 0
+                  ? projectData.assessments.length
+                  : 2;
+              var scoreArr = [];
+              for (var i = 1; i <= projectCount; i++) {
+                var projectTitle =
+                  (projectData.assessments[i - 1] &&
+                    projectData.assessments[i - 1].title) ||
+                  "Proj" + i;
+                scoreArr.push(projectTitle + ": " + (proj["p" + i] || 0));
+              }
+              scoresText = scoreArr.join(" | ");
             }
 
             return (
@@ -2421,6 +2540,26 @@
           var w = grades.written || { p: 0, m: 0, pf: 0, f: 0 };
           var q = grades.quiz || {};
           var quizCount = grades.quizCount || 4;
+
+          // Get assessment data from Assessment & HPS section
+          var writtenData = getAssessmentDataForCourse(courseId, "written");
+
+          // Map written assessments to their subtypes
+          var writtenAssessments = {};
+          if (writtenData.assessments && writtenData.assessments.length > 0) {
+            writtenData.assessments.forEach(function (a) {
+              writtenAssessments[a.subType] = a;
+            });
+          }
+
+          // Default titles for written exams
+          var defaultWritten = {
+            p: { title: "Prelim", hps: 100 },
+            m: { title: "Midterm", hps: 100 },
+            pf: { title: "Pre-Final", hps: 100 },
+            f: { title: "Final", hps: 100 },
+          };
+
           var months = [
             "January",
             "February",
@@ -2436,11 +2575,19 @@
             "December",
           ];
 
-          // Build Written Exam (Major Exams) section
+          // Build Written Exam (Major Exams) section with dynamic titles from Assessment & HPS
           var html =
             '<h6 class="fw-bold mb-3">Major Exams</h6><div class="row">';
+
+          // Prelim
+          var pData = writtenAssessments.p || defaultWritten.p;
+          var pHps = writtenData.hps.p || 100;
           html +=
-            '<div class="col-md-3 mb-3"><label class="form-label">Prelim</label><select class="form-select mb-2" id="inputPrelimMonth"><option value="">Select Month</option>' +
+            '<div class="col-md-3 mb-3"><label class="form-label">' +
+            pData.title +
+            ' <small class="text-muted">(HPS: ' +
+            pHps +
+            ')</small></label><select class="form-select mb-2" id="inputPrelimMonth"><option value="">Select Month</option>' +
             months
               .map(function (m) {
                 return (
@@ -2455,13 +2602,24 @@
               })
               .join("") +
             '</select><input type="text" class="form-control mb-1" id="inputPrelimTitle" placeholder="Title" value="' +
-            (w.pTitle || "") +
+            (w.pTitle || pData.title) +
             '" /><input type="date" class="form-control mb-1" id="inputPrelimDate" value="' +
             (w.pDate || "") +
             '" /><input type="number" class="form-control" id="inputScorePrelim" value="' +
             w.p +
-            '" placeholder="Score" /></div>' +
-            '<div class="col-md-3 mb-3"><label class="form-label">Midterm</label><select class="form-select mb-2" id="inputMidtermMonth"><option value="">Select Month</option>' +
+            '" placeholder="Score (max: ' +
+            pHps +
+            ')" /></div>';
+
+          // Midterm
+          var mData = writtenAssessments.m || defaultWritten.m;
+          var mHps = writtenData.hps.m || 100;
+          html +=
+            '<div class="col-md-3 mb-3"><label class="form-label">' +
+            mData.title +
+            ' <small class="text-muted">(HPS: ' +
+            mHps +
+            ')</small></label><select class="form-select mb-2" id="inputMidtermMonth"><option value="">Select Month</option>' +
             months
               .map(function (m) {
                 return (
@@ -2476,13 +2634,24 @@
               })
               .join("") +
             '</select><input type="text" class="form-control mb-1" id="inputMidtermTitle" placeholder="Title" value="' +
-            (w.mTitle || "") +
+            (w.mTitle || mData.title) +
             '" /><input type="date" class="form-control mb-1" id="inputMidtermDate" value="' +
             (w.mDate || "") +
             '" /><input type="number" class="form-control" id="inputScoreMidterm" value="' +
             w.m +
-            '" placeholder="Score" /></div>' +
-            '<div class="col-md-3 mb-3"><label class="form-label">Pre-Final</label><select class="form-select mb-2" id="inputPrefinalMonth"><option value="">Select Month</option>' +
+            '" placeholder="Score (max: ' +
+            mHps +
+            ')" /></div>';
+
+          // Pre-Final
+          var pfData = writtenAssessments.pf || defaultWritten.pf;
+          var pfHps = writtenData.hps.pf || 100;
+          html +=
+            '<div class="col-md-3 mb-3"><label class="form-label">' +
+            pfData.title +
+            ' <small class="text-muted">(HPS: ' +
+            pfHps +
+            ')</small></label><select class="form-select mb-2" id="inputPrefinalMonth"><option value="">Select Month</option>' +
             months
               .map(function (m) {
                 return (
@@ -2497,13 +2666,24 @@
               })
               .join("") +
             '</select><input type="text" class="form-control mb-1" id="inputPrefinalTitle" placeholder="Title" value="' +
-            (w.pfTitle || "") +
+            (w.pfTitle || pfData.title) +
             '" /><input type="date" class="form-control mb-1" id="inputPrefinalDate" value="' +
             (w.pfDate || "") +
             '" /><input type="number" class="form-control" id="inputScorePreFinal" value="' +
             w.pf +
-            '" placeholder="Score" /></div>' +
-            '<div class="col-md-3 mb-3"><label class="form-label">Final</label><select class="form-select mb-2" id="inputFinalMonth"><option value="">Select Month</option>' +
+            '" placeholder="Score (max: ' +
+            pfHps +
+            ')" /></div>';
+
+          // Final
+          var fData = writtenAssessments.f || defaultWritten.f;
+          var fHps = writtenData.hps.f || 100;
+          html +=
+            '<div class="col-md-3 mb-3"><label class="form-label">' +
+            fData.title +
+            ' <small class="text-muted">(HPS: ' +
+            fHps +
+            ')</small></label><select class="form-select mb-2" id="inputFinalMonth"><option value="">Select Month</option>' +
             months
               .map(function (m) {
                 return (
@@ -2518,12 +2698,14 @@
               })
               .join("") +
             '</select><input type="text" class="form-control mb-1" id="inputFinalTitle" placeholder="Title" value="' +
-            (w.fTitle || "") +
+            (w.fTitle || fData.title) +
             '" /><input type="date" class="form-control mb-1" id="inputFinalDate" value="' +
             (w.fDate || "") +
             '" /><input type="number" class="form-control" id="inputScoreFinal" value="' +
             w.f +
-            '" placeholder="Score" /></div>';
+            '" placeholder="Score (max: ' +
+            fHps +
+            ')" /></div>';
 
           // Add Quizzes section for non-lab courses
           html +=
@@ -2550,6 +2732,12 @@
           }, 100);
         } else if (examType === "pt") {
           var p = grades.pt || { p1: 0, p2: 0, p3: 0, p4: 0 };
+
+          // Get assessment data from Assessment & HPS section
+          var ptData = getAssessmentDataForCourse(courseId, "pt");
+          var ptCount =
+            ptData.assessments.length > 0 ? ptData.assessments.length : 4;
+
           var months = [
             "January",
             "February",
@@ -2564,79 +2752,63 @@
             "November",
             "December",
           ];
-          html =
-            '<div class="row">' +
-            '<div class="col-md-3 mb-3"><label class="form-label">PT 1</label><select class="form-select mb-2" id="inputPt1Month"><option value="">Select Month</option>' +
-            months
-              .map(function (m) {
-                return (
-                  '<option value="' +
-                  m +
-                  '"' +
-                  (p.p1Month === m ? " selected" : "") +
-                  ">" +
-                  m +
-                  "</option>"
-                );
-              })
-              .join("") +
-            '</select><input type="number" class="form-control" id="inputPt1" value="' +
-            p.p1 +
-            '" placeholder="Score" /></div>' +
-            '<div class="col-md-3 mb-3"><label class="form-label">PT 2</label><select class="form-select mb-2" id="inputPt2Month"><option value="">Select Month</option>' +
-            months
-              .map(function (m) {
-                return (
-                  '<option value="' +
-                  m +
-                  '"' +
-                  (p.p2Month === m ? " selected" : "") +
-                  ">" +
-                  m +
-                  "</option>"
-                );
-              })
-              .join("") +
-            '</select><input type="number" class="form-control" id="inputPt2" value="' +
-            p.p2 +
-            '" placeholder="Score" /></div>' +
-            '<div class="col-md-3 mb-3"><label class="form-label">PT 3</label><select class="form-select mb-2" id="inputPt3Month"><option value="">Select Month</option>' +
-            months
-              .map(function (m) {
-                return (
-                  '<option value="' +
-                  m +
-                  '"' +
-                  (p.p3Month === m ? " selected" : "") +
-                  ">" +
-                  m +
-                  "</option>"
-                );
-              })
-              .join("") +
-            '</select><input type="number" class="form-control" id="inputPt3" value="' +
-            p.p3 +
-            '" placeholder="Score" /></div>' +
-            '<div class="col-md-3 mb-3"><label class="form-label">PT 4</label><select class="form-select mb-2" id="inputPt4Month"><option value="">Select Month</option>' +
-            months
-              .map(function (m) {
-                return (
-                  '<option value="' +
-                  m +
-                  '"' +
-                  (p.p4Month === m ? " selected" : "") +
-                  ">" +
-                  m +
-                  "</option>"
-                );
-              })
-              .join("") +
-            '</select><input type="number" class="form-control" id="inputPt4" value="' +
-            p.p4 +
-            '" placeholder="Score" /></div>' +
+
+          // Build PT input fields dynamically based on Assessment & HPS data
+          var html = '<div class="row">';
+          for (var ptIdx = 1; ptIdx <= ptCount; ptIdx++) {
+            var ptAssessment = ptData.assessments[ptIdx - 1] || {
+              title: "PT " + ptIdx,
+              month: "",
+              hps: 100,
+            };
+            var ptKey = "p" + ptIdx;
+            var ptScore = p[ptKey] || 0;
+            var ptMonthKey = ptKey + "Month";
+            var ptMonth = p[ptMonthKey] || "";
+            var ptHps = ptData.hps[ptKey] || 100;
+
+            html +=
+              '<div class="col-md-3 mb-3"><label class="form-label">' +
+              ptAssessment.title +
+              ' <small class="text-muted">(HPS: ' +
+              ptHps +
+              ")</small></label>" +
+              '<select class="form-select mb-2" id="inputPt' +
+              ptIdx +
+              'Month"><option value="">Select Month</option>' +
+              months
+                .map(function (m) {
+                  return (
+                    '<option value="' +
+                    m +
+                    '"' +
+                    (ptMonth === m ? " selected" : "") +
+                    ">" +
+                    m +
+                    "</option>"
+                  );
+                })
+                .join("") +
+              '</select><input type="number" class="form-control" id="inputPt' +
+              ptIdx +
+              '" value="' +
+              ptScore +
+              '" placeholder="Score (max: ' +
+              ptHps +
+              ')" /></div>';
+          }
+          html +=
             '</div><button class="btn btn-primary" onclick="saveStudentGrade()">Save Grades</button>';
         } else if (examType === "project") {
           var proj = grades.project || { p1: 0, p2: 0 };
+
+          // Get assessment data from Assessment & HPS section
+          var projectData = getAssessmentDataForCourse(courseId, "project");
+          var projectCount =
+            projectData.assessments.length > 0
+              ? projectData.assessments.length
+              : 2;
+
           var months = [
             "January",
             "February",
@@ -2651,42 +2823,52 @@
             "November",
             "December",
           ];
-          html =
-            '<div class="row">' +
-            '<div class="col-md-6 mb-3"><label class="form-label">Project 1</label><select class="form-select mb-2" id="inputProject1Month"><option value="">Select Month</option>' +
-            months
-              .map(function (m) {
-                return (
-                  '<option value="' +
-                  m +
-                  '"' +
-                  (proj.p1Month === m ? " selected" : "") +
-                  ">" +
-                  m +
-                  "</option>"
-                );
-              })
-              .join("") +
-            '</select><input type="number" class="form-control" id="inputProject1" value="' +
-            proj.p1 +
-            '" placeholder="Score" /></div>' +
-            '<div class="col-md-6 mb-3"><label class="form-label">Project 2</label><select class="form-select mb-2" id="inputProject2Month"><option value="">Select Month</option>' +
-            months
-              .map(function (m) {
-                return (
-                  '<option value="' +
-                  m +
-                  '"' +
-                  (proj.p2Month === m ? " selected" : "") +
-                  ">" +
-                  m +
-                  "</option>"
-                );
-              })
-              .join("") +
-            '</select><input type="number" class="form-control" id="inputProject2" value="' +
-            proj.p2 +
-            '" placeholder="Score" /></div>' +
+
+          // Build Project input fields dynamically based on Assessment & HPS data
+          var html = '<div class="row">';
+          for (var projIdx = 1; projIdx <= projectCount; projIdx++) {
+            var projectAssessment = projectData.assessments[projIdx - 1] || {
+              title: "Project " + projIdx,
+              month: "",
+              hps: 100,
+            };
+            var projKey = "p" + projIdx;
+            var projScore = proj[projKey] || 0;
+            var projMonthKey = projKey + "Month";
+            var projMonth = proj[projMonthKey] || "";
+            var projHps = projectData.hps[projKey] || 100;
+
+            html +=
+              '<div class="col-md-6 mb-3"><label class="form-label">' +
+              projectAssessment.title +
+              ' <small class="text-muted">(HPS: ' +
+              projHps +
+              ")</small></label>" +
+              '<select class="form-select mb-2" id="inputProject' +
+              projIdx +
+              'Month"><option value="">Select Month</option>' +
+              months
+                .map(function (m) {
+                  return (
+                    '<option value="' +
+                    m +
+                    '"' +
+                    (projMonth === m ? " selected" : "") +
+                    ">" +
+                    m +
+                    "</option>"
+                  );
+                })
+                .join("") +
+              '</select><input type="number" class="form-control" id="inputProject' +
+              projIdx +
+              '" value="' +
+              projScore +
+              '" placeholder="Score (max: ' +
+              projHps +
+              ')" /></div>';
+          }
+          html +=
             '</div><button class="btn btn-primary" onclick="saveStudentGrade()">Save Grades</button>';
         }
 
@@ -2709,6 +2891,13 @@
           parseInt(document.getElementById("inputQuizCount")?.value) ||
           4;
         var q = existingGrades || {};
+
+        // Get assessment data from Assessment & HPS section
+        var courseId = parseInt(
+          document.getElementById("gradeCourseSelect")?.value,
+        );
+        var quizData = getAssessmentDataForCourse(courseId, "quiz");
+
         var months = [
           "January",
           "February",
@@ -2726,11 +2915,20 @@
 
         var html = "";
         for (var i = 1; i <= quizCount; i++) {
+          var quizAssessment = quizData.assessments[i - 1] || {
+            title: "Quiz " + i,
+            month: "",
+            hps: 50,
+          };
+          var quizHps = quizData.hps["q" + i] || 50;
+
           html +=
             '<div class="col-md-3 mb-3">' +
-            '<label class="form-label">Quiz ' +
-            i +
-            "</label>" +
+            '<label class="form-label">' +
+            quizAssessment.title +
+            ' <small class="text-muted">(HPS: ' +
+            quizHps +
+            ")</small></label>" +
             '<select class="form-select mb-2" id="inputQuiz' +
             i +
             'Month">' +
@@ -2752,7 +2950,7 @@
             '<input type="text" class="form-control mb-1" id="inputQuiz' +
             i +
             'Title" placeholder="Title" value="' +
-            (q["q" + i + "Title"] || "") +
+            (q["q" + i + "Title"] || quizAssessment.title) +
             '" />' +
             '<input type="date" class="form-control mb-1" id="inputQuiz' +
             i +
@@ -2763,7 +2961,9 @@
             i +
             '" value="' +
             (q["q" + i] || 0) +
-            '" placeholder="Score" />' +
+            '" placeholder="Score (max: ' +
+            quizHps +
+            ')" />' +
             "</div>";
         }
         container.innerHTML = html;
@@ -2823,23 +3023,35 @@
               document.getElementById("inputQuiz" + i + "Date").value || "";
           }
         } else if (examType === "pt") {
-          grades.pt = {
-            p1: parseFloat(document.getElementById("inputPt1").value) || 0,
-            p2: parseFloat(document.getElementById("inputPt2").value) || 0,
-            p3: parseFloat(document.getElementById("inputPt3").value) || 0,
-            p4: parseFloat(document.getElementById("inputPt4").value) || 0,
-            p1Month: document.getElementById("inputPt1Month").value,
-            p2Month: document.getElementById("inputPt2Month").value,
-            p3Month: document.getElementById("inputPt3Month").value,
-            p4Month: document.getElementById("inputPt4Month").value,
-          };
+          // Get PT data from Assessment & HPS to determine how many PT fields to save
+          var ptData = getAssessmentDataForCourse(courseId, "pt");
+          var ptCount =
+            ptData.assessments.length > 0 ? ptData.assessments.length : 4;
+
+          grades.pt = {};
+          for (var i = 1; i <= ptCount; i++) {
+            grades.pt["p" + i] =
+              parseFloat(document.getElementById("inputPt" + i)?.value) || 0;
+            grades.pt["p" + i + "Month"] =
+              document.getElementById("inputPt" + i + "Month")?.value || "";
+          }
         } else if (examType === "project") {
-          grades.project = {
-            p1: parseFloat(document.getElementById("inputProject1").value) || 0,
-            p2: parseFloat(document.getElementById("inputProject2").value) || 0,
-            p1Month: document.getElementById("inputProject1Month").value,
-            p2Month: document.getElementById("inputProject2Month").value,
-          };
+          // Get Project data from Assessment & HPS to determine how many Project fields to save
+          var projectData = getAssessmentDataForCourse(courseId, "project");
+          var projectCount =
+            projectData.assessments.length > 0
+              ? projectData.assessments.length
+              : 2;
+
+          grades.project = {};
+          for (var i = 1; i <= projectCount; i++) {
+            grades.project["p" + i] =
+              parseFloat(document.getElementById("inputProject" + i)?.value) ||
+              0;
+            grades.project["p" + i + "Month"] =
+              document.getElementById("inputProject" + i + "Month")?.value ||
+              "";
+          }
         }
 
         store.grades[key] = grades;

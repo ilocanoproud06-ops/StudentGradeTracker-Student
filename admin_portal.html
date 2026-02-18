@@ -41,6 +41,13 @@
         <h5 class="text-white mb-4">
           <i class="fas fa-graduation-cap me-2"></i>AcademicPro
         </h5>
+        <!-- Storage Mode Indicator -->
+        <div class="mb-3 px-2">
+          <div id="storageModeIndicator" class="badge bg-info w-100 py-2">
+            <i class="fas fa-save me-1"></i>
+            <span data-storage-mode>Local Mode</span>
+          </div>
+        </div>
         <ul class="nav flex-column">
           <li class="nav-item">
             <a class="nav-link active" href="#" data-section="dashboard"
@@ -94,6 +101,33 @@
           onclick="window.location.href = 'welcome_admin.html'"
           ><i class="fas fa-sign-out-alt me-2"></i>Logout</a
         >
+
+        <!-- Data Management Section -->
+        <div class="mt-4 px-2">
+          <hr class="border-secondary" />
+          <p class="text-muted small mb-2">
+            <i class="fas fa-database me-1"></i> Data Management
+          </p>
+          <button
+            class="btn btn-sm btn-outline-light w-100 mb-2"
+            onclick="exportData()"
+          >
+            <i class="fas fa-download me-1"></i> Export Backup
+          </button>
+          <input
+            type="file"
+            id="importFile"
+            accept=".json"
+            style="display: none"
+            onchange="importData(this)"
+          />
+          <button
+            class="btn btn-sm btn-outline-light w-100"
+            onclick="document.getElementById('importFile').click()"
+          >
+            <i class="fas fa-upload me-1"></i> Import Backup
+          </button>
+        </div>
       </div>
 
       <div class="col-md-10 p-4">
@@ -4214,8 +4248,82 @@
 
       function save() {
         localStorage.setItem(DB_KEY, JSON.stringify(store));
-        // Sync to Firebase Firestore
-        saveToFirebase();
+
+        // Use SyncManager if available for better sync handling
+        if (typeof SyncManager !== "undefined") {
+          SyncManager.quickSave(store);
+        } else {
+          // Fallback to direct Firebase sync
+          saveToFirebase();
+        }
+      }
+
+      // ============================================
+      // Export/Import Data Functions
+      // ============================================
+
+      // Export data as JSON file
+      function exportData() {
+        const dataStr = JSON.stringify(store, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `student_grade_tracker_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        alert(
+          "Data exported successfully! You can use this file to backup or transfer data.",
+        );
+        return true;
+      }
+
+      // Import data from JSON file
+      function importData(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            const importedData = JSON.parse(e.target.result);
+
+            // Validate basic structure
+            if (!importedData.courses || !importedData.students) {
+              alert(
+                "Invalid backup file format. Please select a valid backup file.",
+              );
+              return;
+            }
+
+            // Update store with imported data
+            store = importedData;
+
+            // Save to localStorage
+            localStorage.setItem(DB_KEY, JSON.stringify(store));
+
+            // Refresh the UI
+            renderDashboard();
+            renderCourses();
+            renderStudents();
+            renderEnrollment();
+            renderGradingScale();
+            populateDashboardGradeFilter();
+            renderDashboardGradeSummary();
+
+            alert("Data imported successfully!");
+          } catch (error) {
+            alert("Error importing data: " + error.message);
+          }
+        };
+        reader.readAsText(file);
+
+        // Reset the input
+        input.value = "";
       }
 
       // ============================================

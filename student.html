@@ -28,10 +28,23 @@
         appId: "1:886408200590:web:c9fbdb028e5dcd442c64df",
       };
 
-      // Initialize Firebase
-      const app = firebase.initializeApp(firebaseConfig);
-      const db = firebase.firestore();
-      const auth = firebase.auth();
+      // Initialize Firebase - with error handling for GitHub Pages compatibility
+      let db = null;
+      let auth = null;
+      let firebaseAvailable = false;
+
+      try {
+        if (typeof firebase !== "undefined") {
+          const app = firebase.initializeApp(firebaseConfig);
+          db = firebase.firestore();
+          auth = firebase.auth();
+          firebaseAvailable = true;
+          console.log("Firebase initialized successfully");
+        }
+      } catch (error) {
+        console.log("Firebase not available, using localStorage only");
+        firebaseAvailable = false;
+      }
     </script>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap");
@@ -82,6 +95,12 @@
         </div>
 
         <div class="space-y-4">
+          <div id="loading-indicator" class="text-center py-2">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="text-slate-500 text-sm mt-2">Loading student data...</p>
+          </div>
           <input
             type="text"
             id="student-id-input"
@@ -292,6 +311,11 @@
           </h1>
         </div>
         <div class="flex items-center gap-3">
+          <!-- Connection Status Indicator -->
+          <div id="connectionStatus" class="badge bg-warning">
+            <i class="fas fa-wifi me-1"></i>
+            <span id="connectionText">Checking...</span>
+          </div>
           <span
             id="student-name-display"
             class="font-bold text-slate-700"
@@ -424,6 +448,240 @@
           { min: 0, max: 54, label: "F" },
         ],
       };
+
+      // ============================================
+      // Firebase Firestore Load Functions
+      // ============================================
+
+      // Load all data from Firebase Firestore on startup
+      async function loadFromFirebase() {
+        try {
+          console.log("Loading data from Firebase...");
+
+          // Load collections
+          store.courses = await loadCollectionFromFirebase("courses");
+          store.students = await loadCollectionFromFirebase("students");
+          store.enrollments = await loadCollectionFromFirebase("enrollments");
+          store.assessments = await loadCollectionFromFirebase("assessments");
+          store.groups = await loadCollectionFromFirebase("groups");
+          store.grades = await loadGradesFromFirebase("grades");
+
+          // Load settings
+          const hpsDoc = await db.collection("settings").doc("hps").get();
+          if (hpsDoc.exists) {
+            store.hps = hpsDoc.data();
+          }
+
+          const weightsDoc = await db
+            .collection("settings")
+            .doc("weights")
+            .get();
+          if (weightsDoc.exists) {
+            store.weights = weightsDoc.data();
+          }
+
+          const gradingScaleDoc = await db
+            .collection("settings")
+            .doc("gradingScale")
+            .get();
+          if (gradingScaleDoc.exists) {
+            store.gradingScale = gradingScaleDoc.data().scale || [];
+          }
+
+          // Save to localStorage after loading from Firebase
+          localStorage.setItem(DB_KEY, JSON.stringify(store));
+
+          console.log("Data loaded from Firebase successfully");
+          return true;
+        } catch (error) {
+          console.error("Error loading from Firebase:", error);
+          // Fall back to localStorage on error
+          console.log("Falling back to localStorage...");
+          store = JSON.parse(localStorage.getItem(DB_KEY)) || store;
+          return false;
+        }
+      }
+
+      // Load a collection array from Firestore
+      async function loadCollectionFromFirebase(collectionName) {
+        try {
+          const snapshot = await db.collection(collectionName).get();
+          const data = [];
+          snapshot.forEach((doc) => {
+            data.push(doc.data());
+          });
+          return data;
+        } catch (error) {
+          console.error(
+            `Error loading ${collectionName} from Firebase:`,
+            error,
+          );
+          return [];
+        }
+      }
+
+      // Load grades from Firestore (grades is an object, not array)
+      async function loadGradesFromFirebase(collectionName) {
+        try {
+          const snapshot = await db.collection(collectionName).get();
+          const gradesObj = {};
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            const id = data.id;
+            delete data.id;
+            gradesObj[id] = data;
+          });
+          return gradesObj;
+        } catch (error) {
+          console.error(
+            `Error loading ${collectionName} from Firebase:`,
+            error,
+          );
+          return {};
+        }
+      }
+
+      // Save data to Firebase Firestore
+      async function saveToFirebase() {
+        try {
+          // Save students (for PIN updates)
+          await saveCollectionToFirebase("students", store.students);
+          // Save grades
+          await saveGradesToFirebase("grades", store.grades);
+          console.log("Data synced to Firebase successfully");
+        } catch (error) {
+          console.error("Error syncing to Firebase:", error);
+        }
+      }
+
+      // Save a collection array to Firestore
+      async function saveCollectionToFirebase(collectionName, data) {
+        try {
+          // Delete all existing documents in the collection
+          const snapshot = await db.collection(collectionName).get();
+          const deletePromises = snapshot.docs.map((doc) => doc.ref.delete());
+          await Promise.all(deletePromises);
+
+          // Add all items from the array
+          if (data && data.length > 0) {
+            const addPromises = data.map((item) =>
+              db.collection(collectionName).add(item),
+            );
+            await Promise.all(addPromises);
+          }
+        } catch (error) {
+          console.error(`Error saving ${collectionName} to Firebase:`, error);
+        }
+      }
+
+      // Save grades to Firestore
+      async function saveGradesToFirebase(collectionName, data) {
+        try {
+          const snapshot = await db.collection(collectionName).get();
+          const deletePromises = snapshot.docs.map((doc) => doc.ref.delete());
+          await Promise.all(deletePromises);
+
+          if (data) {
+            const entries = Object.entries(data);
+            if (entries.length > 0) {
+              const addPromises = entries.map(([key, value]) =>
+                db.collection(collectionName).add({ id: key, ...value }),
+              );
+              await Promise.all(addPromises);
+            }
+          }
+        } catch (error) {
+          console.error(`Error saving ${collectionName} to Firebase:`, error);
+        }
+      }
+
+      // Initialize app - load from Firebase first
+      async function initStudentApp() {
+        const loadingIndicator = document.getElementById("loading-indicator");
+        const inputField = document.getElementById("student-id-input");
+        const loginButton = document.querySelector(
+          'button[onclick="handleStudentLogin()"]',
+        );
+
+        // Show loading, hide input
+        if (loadingIndicator) loadingIndicator.style.display = "block";
+        if (inputField) inputField.style.display = "none";
+        if (loginButton) loginButton.style.display = "none";
+
+        try {
+          const loaded = await loadFromFirebase();
+          console.log(
+            "Student app initialized, students count:",
+            store.students.length,
+          );
+
+          // Show message if no students found
+          if (!store.students || store.students.length === 0) {
+            // Try to show message in the loading indicator
+            if (loadingIndicator) {
+              loadingIndicator.innerHTML = `
+                <div class="text-warning mb-2">
+                  <i class="fas fa-exclamation-triangle fa-2x"></i>
+                </div>
+                <p class="text-warning font-bold">No students found!</p>
+                <p class="text-slate-500 text-sm">Please contact your administrator to add students.</p>
+              `;
+              return; // Don't show login, show error instead
+            }
+          }
+        } catch (error) {
+          console.error("Error initializing app:", error);
+          // Show error message
+          if (loadingIndicator) {
+            loadingIndicator.innerHTML = `
+              <div class="text-danger mb-2">
+                <i class="fas fa-exclamation-circle fa-2x"></i>
+              </div>
+              <p class="text-danger font-bold">Connection Error</p>
+              <p class="text-slate-500 text-sm">Could not load student data.</p>
+              <button class="btn btn-outline-primary btn-sm mt-2" onclick="location.reload()">
+                <i class="fas fa-sync me-1"></i> Try Again
+              </button>
+            `;
+            return;
+          }
+        }
+
+        // Hide loading, show input
+        if (loadingIndicator) loadingIndicator.style.display = "none";
+        if (inputField) inputField.style.display = "block";
+        if (loginButton) loginButton.style.display = "block";
+      }
+
+      // Run initialization
+      initStudentApp();
+
+      // Update connection status indicator
+      function updateConnectionStatus() {
+        const statusEl = document.getElementById("connectionStatus");
+        const textEl = document.getElementById("connectionText");
+
+        if (!statusEl || !textEl) return;
+
+        if (firebaseAvailable && navigator.onLine) {
+          statusEl.className = "badge bg-success";
+          statusEl.innerHTML =
+            '<i class="fas fa-cloud me-1"></i> <span>Cloud Mode</span>';
+        } else if (navigator.onLine) {
+          statusEl.className = "badge bg-info";
+          statusEl.innerHTML =
+            '<i class="fas fa-save me-1"></i> <span>Local Mode</span>';
+        } else {
+          statusEl.className = "badge bg-warning";
+          statusEl.innerHTML =
+            '<i class="fas fa-wifi me-1"></i> <span>Offline</span>';
+        }
+      }
+
+      // Update status on load and on online/offline events
+      updateConnectionStatus();
+      window.addEventListener("online", updateConnectionStatus);
+      window.addEventListener("offline", updateConnectionStatus);
 
       // Ensure assessments array exists (for backwards compatibility)
       if (!store.assessments) {
@@ -628,6 +886,9 @@
 
           // Save to localStorage
           localStorage.setItem(DB_KEY, JSON.stringify(store));
+
+          // Sync to Firebase for cross-device access
+          saveToFirebase();
 
           // Update display
           document.getElementById("student-name-display").textContent =
@@ -862,6 +1123,9 @@
           // Save to localStorage
           localStorage.setItem(DB_KEY, JSON.stringify(store));
 
+          // Sync to Firebase for cross-device access
+          saveToFirebase();
+
           // Refresh the group options display
           loadGroupOptions();
 
@@ -935,6 +1199,9 @@
 
         // Save to localStorage
         localStorage.setItem(DB_KEY, JSON.stringify(store));
+
+        // Sync to Firebase for cross-device access
+        saveToFirebase();
 
         // Close modal
         var modalEl = document.getElementById("groupSelectionModal");

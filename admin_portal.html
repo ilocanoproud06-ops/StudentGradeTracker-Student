@@ -132,7 +132,10 @@
               class="nav-link active"
               href="javascript:void(0)"
               data-section="dashboard"
-              onclick="showSection('dashboard')"
+              onclick="
+                showSection('dashboard');
+                return false;
+              "
               ><i class="fas fa-chart-line me-2"></i>Dashboard</a
             >
           </li>
@@ -141,7 +144,10 @@
               class="nav-link"
               href="javascript:void(0)"
               data-section="courses"
-              onclick="showSection('courses')"
+              onclick="
+                showSection('courses');
+                return false;
+              "
               ><i class="fas fa-book me-2"></i>Courses</a
             >
           </li>
@@ -150,7 +156,10 @@
               class="nav-link"
               href="javascript:void(0)"
               data-section="students"
-              onclick="showSection('students')"
+              onclick="
+                showSection('students');
+                return false;
+              "
               ><i class="fas fa-users me-2"></i>Students</a
             >
           </li>
@@ -159,7 +168,10 @@
               class="nav-link"
               href="javascript:void(0)"
               data-section="enrollment"
-              onclick="showSection('enrollment')"
+              onclick="
+                showSection('enrollment');
+                return false;
+              "
               ><i class="fas fa-user-plus me-2"></i>Enrollment</a
             >
           </li>
@@ -168,7 +180,10 @@
               class="nav-link"
               href="javascript:void(0)"
               data-section="grades"
-              onclick="showSection('grades')"
+              onclick="
+                showSection('grades');
+                return false;
+              "
               ><i class="fas fa-clipboard-list me-2"></i>Grade Entry</a
             >
           </li>
@@ -177,7 +192,10 @@
               class="nav-link"
               href="javascript:void(0)"
               data-section="grading"
-              onclick="showSection('grading')"
+              onclick="
+                showSection('grading');
+                return false;
+              "
               ><i class="fas fa-scale-balanced me-2"></i>Grading Scale</a
             >
           </li>
@@ -186,7 +204,10 @@
               class="nav-link"
               href="javascript:void(0)"
               data-section="assessmentHps"
-              onclick="showSection('assessmentHps')"
+              onclick="
+                showSection('assessmentHps');
+                return false;
+              "
               ><i class="fas fa-calculator me-2"></i>Assessment & HPS</a
             >
           </li>
@@ -195,7 +216,10 @@
               class="nav-link"
               href="javascript:void(0)"
               data-section="trash"
-              onclick="showSection('trash')"
+              onclick="
+                showSection('trash');
+                return false;
+              "
               ><i class="fas fa-trash me-2"></i>Trash</a
             >
           </li>
@@ -204,7 +228,10 @@
               class="nav-link"
               href="javascript:void(0)"
               data-section="groups"
-              onclick="showSection('groups')"
+              onclick="
+                showSection('groups');
+                return false;
+              "
               ><i class="fas fa-users me-2"></i>Group Management</a
             >
           </li>
@@ -1383,29 +1410,147 @@
       });
 
       const DB_KEY = "academic_grade_system_v1";
-      let store = JSON.parse(localStorage.getItem(DB_KEY)) || {
-        courses: [],
-        students: [],
-        enrollments: [],
-        grades: {},
-        assessments: [],
-        deletedAssessments: [], // Trash for deleted assessments
-        groups: [],
-        hps: { quiz: 50, pt: 100, project: 100, exam: 100 },
-        weights: { written: 40, quiz: 20, pt: 30, project: 10 },
-        gradingScale: [
-          { min: 95, max: 100, label: "A" },
-          { min: 90, max: 94, label: "A-" },
-          { min: 85, max: 89, label: "B+" },
-          { min: 80, max: 84, label: "B" },
-          { min: 75, max: 79, label: "B-" },
-          { min: 70, max: 74, label: "C+" },
-          { min: 65, max: 69, label: "C" },
-          { min: 60, max: 64, label: "C-" },
-          { min: 55, max: 59, label: "D" },
-          { min: 0, max: 54, label: "F" },
-        ],
-      };
+
+      // Check if we have data in localStorage, if not initialize with sample data
+      let existingData = localStorage.getItem(DB_KEY);
+      let store;
+
+      if (existingData) {
+        try {
+          store = JSON.parse(existingData);
+          // If empty, initialize with sample data
+          if (!store.courses || store.courses.length === 0) {
+            store = getDefaultStore();
+            localStorage.setItem(DB_KEY, JSON.stringify(store));
+          }
+        } catch (e) {
+          store = getDefaultStore();
+          localStorage.setItem(DB_KEY, JSON.stringify(store));
+        }
+      } else {
+        store = getDefaultStore();
+        localStorage.setItem(DB_KEY, JSON.stringify(store));
+      }
+
+      // Function to return default store with sample data
+      function getDefaultStore() {
+        return {
+          courses: [
+            {
+              id: 1,
+              code: "IT101",
+              title: "Introduction to Information Technology",
+              schedule: "Mon/Wed 9:00-12:00",
+              room: "Room 101",
+              instructor: "Prof. Smith",
+              hasLab: true,
+            },
+            {
+              id: 2,
+              code: "CS201",
+              title: "Data Structures and Algorithms",
+              schedule: "Tue/Thu 13:00-16:00",
+              room: "Room 202",
+              instructor: "Prof. Johnson",
+              hasLab: true,
+            },
+            {
+              id: 3,
+              code: "IT302",
+              title: "Web Development",
+              schedule: "Fri 9:00-16:00",
+              room: "Lab 301",
+              instructor: "Prof. Williams",
+              hasLab: true,
+            },
+          ],
+          students: [
+            {
+              id: 1,
+              idNum: "IT5839",
+              program: "IT",
+              name: "John Brown",
+              pin: "BJ100",
+              email: "john.brown@example.com",
+              year: "1st Year",
+            },
+            {
+              id: 2,
+              idNum: "CS1234",
+              program: "CS",
+              name: "Jane Smith",
+              pin: "SJ200",
+              email: "jane.smith@example.com",
+              year: "2nd Year",
+            },
+            {
+              id: 3,
+              idNum: "IT5678",
+              program: "IT",
+              name: "Michael Davis",
+              pin: "DM300",
+              email: "michael.davis@example.com",
+              year: "1st Year",
+            },
+          ],
+          enrollments: [
+            {
+              studentId: 1,
+              courseId: 1,
+              year: "2024-2025",
+              semester: "1st Semester",
+            },
+            {
+              studentId: 1,
+              courseId: 2,
+              year: "2024-2025",
+              semester: "1st Semester",
+            },
+            {
+              studentId: 2,
+              courseId: 1,
+              year: "2024-2025",
+              semester: "1st Semester",
+            },
+            {
+              studentId: 2,
+              courseId: 2,
+              year: "2024-2025",
+              semester: "1st Semester",
+            },
+            {
+              studentId: 3,
+              courseId: 1,
+              year: "2024-2025",
+              semester: "1st Semester",
+            },
+            {
+              studentId: 3,
+              courseId: 3,
+              year: "2024-2025",
+              semester: "1st Semester",
+            },
+          ],
+          grades: {},
+          assessments: [],
+          deletedAssessments: [],
+          groups: [],
+          hps: { quiz: 50, pt: 100, project: 100, exam: 100 },
+          weights: { written: 40, quiz: 20, pt: 30, project: 10 },
+          gradingScale: [
+            { min: 95, max: 100, label: "A" },
+            { min: 90, max: 94, label: "A-" },
+            { min: 85, max: 89, label: "B+" },
+            { min: 80, max: 84, label: "B" },
+            { min: 75, max: 79, label: "B-" },
+            { min: 70, max: 74, label: "C+" },
+            { min: 65, max: 69, label: "C" },
+            { min: 60, max: 64, label: "C-" },
+            { min: 55, max: 59, label: "D" },
+            { min: 0, max: 54, label: "F" },
+          ],
+        };
+      }
 
       // Ensure deletedAssessments array exists (for backwards compatibility)
       if (!store.deletedAssessments) {
@@ -1502,6 +1647,7 @@
           const navLink = e.target.closest(".nav-link");
           if (navLink && navLink.dataset.section) {
             e.preventDefault();
+            console.log("Nav click detected for:", navLink.dataset.section);
             showSection(navLink.dataset.section);
           }
         });
@@ -1554,42 +1700,38 @@
       });
 
       function initApp() {
-        // Use SyncManager for data loading - works offline
-        // SyncManager will use localStorage first, optionally sync with Firebase if enabled
-        SyncManager.loadData()
-          .then(function (storeData) {
-            store = storeData;
-            console.log("Data loaded, students count:", store.students.length);
+        console.log("initApp called");
 
-            // Continue with app initialization
-            renderDashboard();
-            renderCourses();
-            renderStudents();
-            renderEnrollment();
-            renderGradingScale();
+        // Use local data directly (already loaded above)
+        // No need to call SyncManager since we already have data in store variable
+        console.log("Data loaded, students count:", store.students.length);
+        console.log("Courses count:", store.courses.length);
 
-            // Populate dashboard grade summary
-            populateDashboardGradeFilter();
-            renderDashboardGradeSummary();
+        // Continue with app initialization
+        renderDashboard();
+        renderCourses();
+        renderStudents();
+        renderEnrollment();
+        renderGradingScale();
 
-            // Initialize default HPS values in store if not present
-            if (!store.hps) {
-              store.hps = { quiz: 50, pt: 100, project: 100, exam: 100 };
-            }
-            if (!store.hps.perAssessment) {
-              store.hps.perAssessment = {};
-            }
-            save();
-          })
-          .catch(function (error) {
-            console.error("Error loading data:", error);
-            // Use default store on error
-            store = SyncManager.ensureDefaultStructure(null);
-            save();
-          });
+        // Populate dashboard grade summary
+        populateDashboardGradeFilter();
+        renderDashboardGradeSummary();
+
+        // Initialize default HPS values in store if not present
+        if (!store.hps) {
+          store.hps = { quiz: 50, pt: 100, project: 100, exam: 100 };
+        }
+        if (!store.hps.perAssessment) {
+          store.hps.perAssessment = {};
+        }
+        save();
       }
 
       function showSection(id) {
+        // Debug: show alert when function is called
+        console.log("showSection called with:", id);
+
         // Check if trying to access grades section without Assessment & HPS
         if (id === "grades") {
           var hasAssessmentHps = checkAssessmentHpsConfigured();
@@ -5309,6 +5451,7 @@
         // Title
         doc.setFontSize(18);
         doc.text("Grade Summary Report", 14, 22);
+
         doc.setFontSize(10);
         doc.text("Generated: " + new Date().toLocaleDateString(), 14, 30);
 
@@ -5472,6 +5615,198 @@
         });
 
         doc.save("grade_summary_report.pdf");
+      }
+
+      // ============================================
+      // Navigation URLs Modal Functions
+      // ============================================
+
+      // Get all navigation URLs
+      function getNavigationUrls() {
+        // Auto-detect current GitHub Pages URL
+        var currentPath = window.location.pathname;
+        var pathParts = currentPath.split("/").filter(function (p) {
+          return p;
+        });
+        var basePath =
+          pathParts.length > 0
+            ? "/" + pathParts.slice(0, -1).join("/") + "/"
+            : "/";
+        var baseUrl = window.location.origin + basePath;
+
+        return {
+          studentPortal: [
+            {
+              name: "Student Portal (Main)",
+              url: "https://ilocanoproud06-ops.github.io/StudentGradeTracker-Student/student.html",
+              status: "Live",
+            },
+            {
+              name: "Student Portal (Alt 1)",
+              url: "https://ilocanoproud06-ops.github.io/StudentGradeTracker/student.html",
+              status: "Live",
+            },
+            {
+              name: "Student Portal (Alt 2)",
+              url: "https://ilocanoproud06-ops.github.io/StudentTracker/student.html",
+              status: "Live",
+            },
+            {
+              name: "Student Portal (Alt 3)",
+              url: "https://ilocanoproud06-ops.github.io/StudentGradeTracker-Admin/student.html",
+              status: "Live",
+            },
+          ],
+          adminPortal: [
+            {
+              name: "Admin Login (Primary)",
+              url: "https://ilocanoproud06-ops.github.io/StudentGradeTracker-Admin/admin_login.html",
+              status: "Live",
+            },
+            {
+              name: "Admin Login (Alt 1)",
+              url: "https://ilocanoproud06-ops.github.io/StudentGradeTracker/admin_login.html",
+              status: "Live",
+            },
+          ],
+          firebase: [
+            {
+              name: "Firebase Console",
+              url: "https://console.firebase.google.com/project/studentgradetracker-e04c0",
+              status: "Cloud",
+            },
+            {
+              name: "Firestore Database",
+              url: "https://console.firebase.google.com/project/studentgradetracker-e04c0/firestore",
+              status: "Cloud",
+            },
+          ],
+        };
+      }
+
+      // Show URL Modal
+      function showUrlModal() {
+        var urls = getNavigationUrls();
+
+        var html = `
+          <div class="modal fade" id="urlModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+              <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                  <h5 class="modal-title"><i class="fas fa-link me-2"></i>Access URLs - Share with Users</h5>
+                  <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                  <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>For Students:</strong> Share any of the Student Portal URLs below so they can view their grades.
+                  </div>
+                  
+                  <h6 class="fw-bold text-primary mt-4"><i class="fas fa-user-graduate me-2"></i>Student Portal URLs (For Students)</h6>
+                  <div class="list-group mb-4">
+        `;
+
+        urls.studentPortal.forEach(function (u) {
+          html += `
+            <div class="list-group-item">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <strong>${u.name}</strong>
+                  <span class="badge bg-success ms-2">${u.status}</span>
+                </div>
+                <button class="btn btn-sm btn-outline-primary" onclick="copyUrl('${u.url}')">
+                  <i class="fas fa-copy me-1"></i> Copy
+                </button>
+              </div>
+              <small class="text-muted text-break">${u.url}</small>
+            </div>
+          `;
+        });
+
+        html += `
+                  </div>
+                  
+                  <h6 class="fw-bold text-secondary mt-4"><i class="fas fa-user-cog me-2"></i>Admin Login URLs (For Teachers)</h6>
+                  <div class="list-group mb-4">
+        `;
+
+        urls.adminPortal.forEach(function (u) {
+          html += `
+            <div class="list-group-item">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <strong>${u.name}</strong>
+                  <span class="badge bg-success ms-2">${u.status}</span>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary" onclick="copyUrl('${u.url}')">
+                  <i class="fas fa-copy me-1"></i> Copy
+                </button>
+              </div>
+              <small class="text-muted text-break">${u.url}</small>
+            </div>
+          `;
+        });
+
+        html += `
+                  </div>
+                  
+                  <h6 class="fw-bold text-warning mt-4"><i class="fas fa-cloud me-2"></i>Cloud Resources (Firebase)</h6>
+                  <div class="list-group">
+        `;
+
+        urls.firebase.forEach(function (u) {
+          html += `
+            <div class="list-group-item">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <strong>${u.name}</strong>
+                  <span class="badge bg-warning text-dark ms-2">${u.status}</span>
+                </div>
+                <button class="btn btn-sm btn-outline-warning" onclick="copyUrl('${u.url}')">
+                  <i class="fas fa-copy me-1"></i> Copy
+                </button>
+              </div>
+              <small class="text-muted text-break">${u.url}</small>
+            </div>
+          `;
+        });
+
+        html += `
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Remove existing modal if any
+        var existingModal = document.getElementById("urlModal");
+        if (existingModal) {
+          existingModal.remove();
+        }
+
+        // Add modal to body
+        document.body.insertAdjacentHTML("beforeend", html);
+
+        // Show modal
+        var modal = new bootstrap.Modal(document.getElementById("urlModal"));
+        modal.show();
+      }
+
+      // Copy URL to clipboard
+      function copyUrl(url) {
+        navigator.clipboard
+          .writeText(url)
+          .then(function () {
+            alert("URL copied to clipboard!\n\n" + url);
+          })
+          .catch(function (err) {
+            console.error("Failed to copy:", err);
+            prompt("Copy this URL:", url);
+          });
       }
     </script>
   </body>

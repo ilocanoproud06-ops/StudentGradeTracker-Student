@@ -27,7 +27,7 @@ const GITHUB_PAGES_CONFIG = {
     return window.location.origin + basePath;
   },
   
-  // Get all navigation URLs for this application
+      // Get all navigation URLs for this application
   getNavigationUrls: function() {
     const baseUrl = this.getBaseUrl();
     return {
@@ -35,6 +35,7 @@ const GITHUB_PAGES_CONFIG = {
       githubPages: {
         base: baseUrl,
         admin: baseUrl + "admin_portal.html",
+        adminLogin: baseUrl + "admin_login.html",
         student: baseUrl + "student.html",
         login: baseUrl + "login.html",
         data: baseUrl + "data.json",
@@ -50,10 +51,12 @@ const GITHUB_PAGES_CONFIG = {
       },
       // Alternative GitHub repository URLs
       alternativeRepos: [
-        { name: "Main Repo", url: "https://ilocanoproud06-ops.github.io/StudentGradeTracker/" },
-        { name: "Admin Repo", url: "https://ilocanoproud06-ops.github.io/StudentGradeTracker-Admin/" },
-        { name: "Student Repo", url: "https://ilocanoproud06-ops.github.io/StudentGradeTracker-Student/" },
-        { name: "StudentTracker", url: "https://ilocanoproud06-ops.github.io/StudentTracker/" }
+        { name: "Student Portal (Main)", url: "https://ilocanoproud06-ops.github.io/StudentGradeTracker-Student/student.html" },
+        { name: "Student Portal (Alt 1)", url: "https://ilocanoproud06-ops.github.io/StudentGradeTracker/student.html" },
+        { name: "Student Portal (Alt 2)", url: "https://ilocanoproud06-ops.github.io/StudentTracker/student.html" },
+        { name: "Student Portal (Alt 3)", url: "https://ilocanoproud06-ops.github.io/StudentGradeTracker-Admin/student.html" },
+        { name: "Admin Login (Primary)", url: "https://ilocanoproud06-ops.github.io/StudentGradeTracker-Admin/admin_login.html" },
+        { name: "Admin Login (Alt 1)", url: "https://ilocanoproud06-ops.github.io/StudentGradeTracker/admin_login.html" }
       ]
     };
   },

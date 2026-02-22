@@ -163,8 +163,8 @@
 
       // Main App
       function App() {
-        const [activeTab, setActiveTab] = useState("Grade Entry");
-        const [selectedCourseId, setSelectedCourseId] = useState(101);
+        const [activeTab, setActiveTab] = useState("Enrollment");
+        const [selectedCourseId, setSelectedCourseId] = useState(1);
         const [selectedMonth, setSelectedMonth] = useState("February");
         const [store, setStore] = useState(null);
         const [loading, setLoading] = useState(true);
@@ -185,7 +185,7 @@
           loadData();
         }, []);
 
-        // Default data
+        // Default data - matching data.json format
         function getDefaultData() {
           return {
             students: [
@@ -232,47 +232,47 @@
             ],
             courses: [
               {
-                id: 101,
-                code: "MATH101",
-                title: "Mathematics 101",
+                id: 1,
+                code: "IT101",
+                title: "Introduction to IT",
                 type: "Lecture",
                 schedule: "MWF 9:00-10:00",
-                room: "Room 301",
-                instructor: "Dr. Smith",
+                room: "Room 101",
+                instructor: "Prof. Smith",
               },
               {
-                id: 102,
-                code: "CS202",
-                title: "Computer Science II",
+                id: 2,
+                code: "CS201",
+                title: "Data Structures",
                 type: "Laboratory",
                 schedule: "TTh 1:00-3:00",
                 room: "Lab 102",
                 instructor: "Prof. Johnson",
               },
               {
-                id: 103,
-                code: "PHYS101",
-                title: "Physics I",
-                type: "Lecture",
-                schedule: "MWF 11:00-12:00",
-                room: "Room 205",
-                instructor: "Dr. Williams",
+                id: 3,
+                code: "IT302",
+                title: "Web Development",
+                type: "Laboratory",
+                schedule: "Fri 9:00-4:00",
+                room: "Lab 301",
+                instructor: "Prof. Williams",
               },
             ],
             enrollments: [
-              { id: "en-1", studentId: 1, courseId: 101 },
-              { id: "en-2", studentId: 1, courseId: 102 },
-              { id: "en-3", studentId: 2, courseId: 101 },
-              { id: "en-4", studentId: 3, courseId: 101 },
-              { id: "en-5", studentId: 3, courseId: 103 },
-              { id: "en-6", studentId: 4, courseId: 101 },
-              { id: "en-7", studentId: 4, courseId: 102 },
-              { id: "en-8", studentId: 5, courseId: 102 },
+              { id: "en-1", studentId: 1, courseId: 1 },
+              { id: "en-2", studentId: 1, courseId: 2 },
+              { id: "en-3", studentId: 2, courseId: 1 },
+              { id: "en-4", studentId: 3, courseId: 1 },
+              { id: "en-5", studentId: 3, courseId: 3 },
+              { id: "en-6", studentId: 4, courseId: 1 },
+              { id: "en-7", studentId: 4, courseId: 2 },
+              { id: "en-8", studentId: 5, courseId: 2 },
             ],
             assessments: [
               {
                 id: 501,
-                courseId: 101,
+                courseId: 1,
                 category: "Written Exam",
                 title: "Prelim Exam",
                 month: "February",
@@ -280,7 +280,7 @@
               },
               {
                 id: 502,
-                courseId: 101,
+                courseId: 1,
                 category: "Quiz",
                 title: "Quiz 1",
                 month: "February",
@@ -288,7 +288,7 @@
               },
               {
                 id: 503,
-                courseId: 101,
+                courseId: 1,
                 category: "Performance Task",
                 title: "Seatwork 1",
                 month: "February",
@@ -296,7 +296,7 @@
               },
               {
                 id: 504,
-                courseId: 102,
+                courseId: 2,
                 category: "Laboratory",
                 title: "Lab 1",
                 month: "February",
@@ -304,7 +304,7 @@
               },
               {
                 id: 505,
-                courseId: 102,
+                courseId: 2,
                 category: "Laboratory",
                 title: "Lab 2",
                 month: "February",
@@ -312,7 +312,7 @@
               },
               {
                 id: 506,
-                courseId: 103,
+                courseId: 3,
                 category: "Written Exam",
                 title: "Midterm",
                 month: "February",
@@ -320,11 +320,11 @@
               },
             ],
             grades: {
-              "1_101": { 501: 95, 502: 45, 503: 18 },
-              "2_101": { 501: 88, 502: 40 },
-              "3_101": { 501: 92, 502: 48, 503: 20 },
-              "1_102": { 504: 48 },
-              "4_101": { 501: 78, 502: 35 },
+              "1_1": { 501: 95, 502: 45, 503: 18 },
+              "2_1": { 501: 88, 502: 40 },
+              "3_1": { 501: 92, 502: 48, 503: 20 },
+              "1_2": { 504: 48 },
+              "4_1": { 501: 78, 502: 35 },
             },
             gradingScale: [
               { min: 95, max: 100, label: "A" },
@@ -375,42 +375,145 @@
           studentId: null,
         });
 
-        const handleEnrollStudent = (studentId, courseIds) => {
-          const existingEnrollments = data.enrollments.filter(
-            (e) => e.studentId === parseInt(studentId),
-          );
-          const newEnrollments = courseIds
-            .map((cid) => ({
-              id: `en-${Date.now()}-${cid}`,
-              studentId: parseInt(studentId),
-              courseId: parseInt(cid),
-            }))
-            .filter(
-              (newEn) =>
-                !existingEnrollments.some(
-                  (ex) => ex.courseId === newEn.courseId,
-                ),
-            );
-
-          if (newEnrollments.length === 0) {
-            alert("Student is already enrolled in all selected courses.");
+        // Enroll a student in courses (CREATE)
+        const handleEnrollStudent = async (studentId, courseIds) => {
+          if (!studentId || !courseIds || courseIds.length === 0) {
+            alert("Please select a student and at least one course");
             return;
           }
 
-          updateStore({
-            enrollments: [...data.enrollments, ...newEnrollments],
-          });
-          setEnrollmentModal({ open: false, studentId: null });
+          try {
+            const parsedStudentId = parseInt(studentId);
+            const existingEnrollments = data.enrollments.filter(
+              (e) => e.studentId === parsedStudentId,
+            );
+
+            const newEnrollments = courseIds
+              .map((cid) => ({
+                id: `en-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                studentId: parsedStudentId,
+                courseId: parseInt(cid),
+              }))
+              .filter(
+                (newEn) =>
+                  !existingEnrollments.some(
+                    (ex) => ex.courseId === newEn.courseId,
+                  ),
+              );
+
+            if (newEnrollments.length === 0) {
+              alert("Student is already enrolled in all selected courses.");
+              return;
+            }
+
+            const updatedEnrollments = [...data.enrollments, ...newEnrollments];
+
+            // Update state first (immediate UI update)
+            setStore((prev) => ({ ...prev, enrollments: updatedEnrollments }));
+
+            // Then save to storage
+            const storeToSave = { ...data, enrollments: updatedEnrollments };
+            storeToSave._lastModified = new Date().toISOString();
+            localStorage.setItem(
+              "academic_grade_system_v1",
+              JSON.stringify(storeToSave),
+            );
+
+            // Show success message
+            alert(
+              `Successfully enrolled student in ${newEnrollments.length} course(s)!`,
+            );
+
+            // Reset the wizard form
+            const studentSelect = document.getElementById("wizardStudent");
+            if (studentSelect) studentSelect.value = "";
+            document
+              .querySelectorAll('input[id^="course-"]')
+              .forEach((cb) => (cb.checked = false));
+
+            console.log(
+              "Enrollment saved. Total enrollments:",
+              updatedEnrollments.length,
+            );
+          } catch (error) {
+            console.error("Error enrolling student:", error);
+            alert("Error enrolling student. Please try again.");
+          }
         };
 
+        // Unenroll a student from a course (DELETE)
         const handleUnenroll = (enrollmentId) => {
-          if (confirm("Unenroll this student?")) {
-            updateStore({
-              enrollments: data.enrollments.filter(
+          if (
+            confirm(
+              "Are you sure you want to unenroll this student from this course?",
+            )
+          ) {
+            try {
+              const updatedEnrollments = data.enrollments.filter(
                 (e) => e.id !== enrollmentId,
-              ),
-            });
+              );
+
+              // Update state
+              setStore((prev) => ({
+                ...prev,
+                enrollments: updatedEnrollments,
+              }));
+
+              // Save to storage
+              const storeToSave = { ...data, enrollments: updatedEnrollments };
+              storeToSave._lastModified = new Date().toISOString();
+              localStorage.setItem(
+                "academic_grade_system_v1",
+                JSON.stringify(storeToSave),
+              );
+
+              alert("Student has been unenrolled successfully!");
+              console.log(
+                "Unenrolled. Total enrollments:",
+                updatedEnrollments.length,
+              );
+            } catch (error) {
+              console.error("Error unenrolling student:", error);
+              alert("Error unenrolling student. Please try again.");
+            }
           }
+        };
+
+        // Add course to student (alternative method via modal)
+        const handleAddCourseToStudent = (studentId, courseId) => {
+          const parsedStudentId = parseInt(studentId);
+          const parsedCourseId = parseInt(courseId);
+
+          // Check if already enrolled
+          const exists = data.enrollments.some(
+            (e) =>
+              e.studentId === parsedStudentId && e.courseId === parsedCourseId,
+          );
+
+          if (exists) {
+            alert("Student is already enrolled in this course!");
+            return;
+          }
+
+          const newEnrollment = {
+            id: `en-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            studentId: parsedStudentId,
+            courseId: parsedCourseId,
+          };
+
+          const updatedEnrollments = [...data.enrollments, newEnrollment];
+          setStore((prev) => ({ ...prev, enrollments: updatedEnrollments }));
+
+          // Save to storage
+          const storeToSave = { ...data, enrollments: updatedEnrollments };
+          storeToSave._lastModified = new Date().toISOString();
+          localStorage.setItem(
+            "academic_grade_system_v1",
+            JSON.stringify(storeToSave),
+          );
+
+          alert("Course added successfully!");
+          setEnrollmentModal({ open: false, studentId: null });
         };
 
         // ========== ASSESSMENTS & HPS ==========
@@ -462,7 +565,9 @@
         function updateStore(updates) {
           const newStore = { ...data, ...updates };
           setStore(newStore);
+          // Save to localStorage and optionally to Firebase
           SyncManager.quickSave(newStore);
+          console.log("Data saved - enrollments:", newStore.enrollments.length);
         }
 
         const getLetterGrade = (percentage) => {
@@ -779,6 +884,15 @@
                             'input[id^="course-"]:checked',
                           ),
                         ).map((cb) => cb.id.replace("course-", ""));
+
+                        console.log(
+                          "Enrolling student:",
+                          studentId,
+                          "in courses:",
+                          courseIds,
+                        );
+                        console.log("Current enrollments:", data.enrollments);
+
                         if (studentId && courseIds.length > 0)
                           handleEnrollStudent(studentId, courseIds);
                         else

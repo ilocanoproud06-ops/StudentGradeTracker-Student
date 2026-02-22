@@ -376,11 +376,27 @@
         });
 
         const handleEnrollStudent = (studentId, courseIds) => {
-          const newEnrollments = courseIds.map((cid) => ({
-            id: `en-${Date.now()}-${cid}`,
-            studentId: parseInt(studentId),
-            courseId: parseInt(cid),
-          }));
+          const existingEnrollments = data.enrollments.filter(
+            (e) => e.studentId === parseInt(studentId),
+          );
+          const newEnrollments = courseIds
+            .map((cid) => ({
+              id: `en-${Date.now()}-${cid}`,
+              studentId: parseInt(studentId),
+              courseId: parseInt(cid),
+            }))
+            .filter(
+              (newEn) =>
+                !existingEnrollments.some(
+                  (ex) => ex.courseId === newEn.courseId,
+                ),
+            );
+
+          if (newEnrollments.length === 0) {
+            alert("Student is already enrolled in all selected courses.");
+            return;
+          }
+
           updateStore({
             enrollments: [...data.enrollments, ...newEnrollments],
           });

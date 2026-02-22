@@ -1310,47 +1310,345 @@
           );
         };
 
-        // STUDENTS TAB (Simplified)
-        const renderStudents = () => (
-          <div className="space-y-6 animate-in">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-black text-slate-800">
-                  Student Management
-                </h2>
-                <p className="text-xs text-slate-400 font-medium uppercase tracking-widest mt-1">
-                  View and manage students
-                </p>
-              </div>
-            </div>
-            <div className="grid gap-4">
-              {data.students.map((student, idx) => (
-                <div
-                  key={student.id}
-                  className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex items-center justify-between"
+        // ========== STUDENTS CRUD ==========
+        const [studentModal, setStudentModal] = useState({
+          open: false,
+          mode: "add",
+          data: {},
+        });
+
+        // Generate unique student ID
+        const generateStudentId = () => {
+          const year = new Date().getFullYear();
+          const randomNum = Math.floor(1000 + Math.random() * 9000);
+          return `${year}-${randomNum}`;
+        };
+
+        // Generate 6-digit PIN
+        const generatePIN = () => {
+          return Math.floor(100000 + Math.random() * 900000).toString();
+        };
+
+        const handleSaveStudent = (student) => {
+          let newStudents;
+          if (studentModal.mode === "add") {
+            newStudents = [
+              ...data.students,
+              {
+                ...student,
+                id: Date.now(),
+                studentIdNum: student.studentIdNum || generateStudentId(),
+                pin: student.pin || generatePIN(),
+              },
+            ];
+          } else {
+            newStudents = data.students.map((s) =>
+              s.id === student.id ? student : s,
+            );
+          }
+          // Sort alphabetically
+          newStudents.sort((a, b) => a.name.localeCompare(b.name));
+          updateStore({ students: newStudents });
+          setStudentModal({ open: false, mode: "add", data: {} });
+        };
+
+        const handleDeleteStudent = (id) => {
+          if (
+            confirm(
+              "Delete this student? This will also remove all their enrollments.",
+            )
+          ) {
+            updateStore({
+              students: data.students.filter((s) => s.id !== id),
+              enrollments: data.enrollments.filter((e) => e.studentId !== id),
+            });
+          }
+        };
+
+        // STUDENTS TAB
+        const renderStudents = () => {
+          const sortedStudents = [...data.students].sort((a, b) =>
+            a.name.localeCompare(b.name),
+          );
+
+          return (
+            <div className="space-y-6 animate-in">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-800">
+                    Student Management
+                  </h2>
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-widest mt-1">
+                    Register and manage students
+                  </p>
+                </div>
+                <button
+                  onClick={() =>
+                    setStudentModal({
+                      open: true,
+                      mode: "add",
+                      data: {
+                        studentIdNum: generateStudentId(),
+                        pin: generatePIN(),
+                      },
+                    })
+                  }
+                  className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-black">
-                      {idx + 1}
+                  <Icons.Plus /> Register Student
+                </button>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">
+                        #
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">
+                        ID Number
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">
+                        Name
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">
+                        Program
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">
+                        Year Level
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">
+                        Email
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">
+                        PIN
+                      </th>
+                      <th className="px-6 py-4 text-right text-xs font-black text-slate-500 uppercase tracking-widest">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {sortedStudents.map((student, idx) => (
+                      <tr
+                        key={student.id}
+                        className="hover:bg-slate-50 transition-colors"
+                      >
+                        <td className="px-6 py-4 text-sm font-bold text-slate-400">
+                          {idx + 1}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-black text-blue-600">
+                          {student.studentIdNum}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-bold text-slate-800">
+                          {student.name}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          {student.program}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          {student.yearLevel}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-500">
+                          {student.email}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="px-3 py-1 bg-slate-100 rounded-lg text-xs font-mono font-bold text-slate-600">
+                            {student.pin || "------"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() =>
+                              setStudentModal({
+                                open: true,
+                                mode: "edit",
+                                data: student,
+                              })
+                            }
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-600 hover:text-white transition-all mr-2"
+                          >
+                            <Icons.Edit /> Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteStudent(student.id)}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-bold hover:bg-red-500 hover:text-white transition-all"
+                          >
+                            <Icons.Trash2 /> Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {sortedStudents.length === 0 && (
+                  <div className="py-12 text-center">
+                    <Icons.Users className="text-slate-300 text-4xl mb-3 mx-auto" />
+                    <p className="text-slate-400 font-bold">
+                      No students registered yet.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <Modal
+                isOpen={studentModal.open}
+                onClose={() =>
+                  setStudentModal({ open: false, mode: "add", data: {} })
+                }
+                title={
+                  studentModal.mode === "add"
+                    ? "Register New Student"
+                    : "Edit Student"
+                }
+              >
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                        ID Number
+                      </label>
+                      <input
+                        value={studentModal.data.studentIdNum || ""}
+                        onChange={(e) =>
+                          setStudentModal({
+                            ...studentModal,
+                            data: {
+                              ...studentModal.data,
+                              studentIdNum: e.target.value,
+                            },
+                          })
+                        }
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold"
+                        placeholder="2024-0001"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Auto-generated
+                      </p>
                     </div>
                     <div>
-                      <h3 className="font-black text-slate-800">
-                        {student.name}
-                      </h3>
-                      <p className="text-sm text-slate-500">
-                        {student.studentIdNum} • {student.program}
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                        6-Digit PIN
+                      </label>
+                      <input
+                        value={studentModal.data.pin || ""}
+                        onChange={(e) =>
+                          setStudentModal({
+                            ...studentModal,
+                            data: { ...studentModal.data, pin: e.target.value },
+                          })
+                        }
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold font-mono"
+                        placeholder="123456"
+                        maxLength={6}
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        For student login access
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-4 text-xs text-slate-400">
-                    <span>{student.yearLevel}</span>
-                    <span>{student.email}</span>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                      Full Name
+                    </label>
+                    <input
+                      value={studentModal.data.name || ""}
+                      onChange={(e) =>
+                        setStudentModal({
+                          ...studentModal,
+                          data: { ...studentModal.data, name: e.target.value },
+                        })
+                      }
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold"
+                      placeholder="Garcia, Maria S."
+                    />
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                        Program (Degree)
+                      </label>
+                      <select
+                        value={studentModal.data.program || ""}
+                        onChange={(e) =>
+                          setStudentModal({
+                            ...studentModal,
+                            data: {
+                              ...studentModal.data,
+                              program: e.target.value,
+                            },
+                          })
+                        }
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold"
+                      >
+                        <option value="">Select program...</option>
+                        <option>BSCS</option>
+                        <option>BSIT</option>
+                        <option>BS MATH</option>
+                        <option>BS Physics</option>
+                        <option>BS Chemistry</option>
+                        <option>BS Biology</option>
+                        <option>BA Comm</option>
+                        <option>BSBA</option>
+                        <option>BS Accountancy</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                        Year Level
+                      </label>
+                      <select
+                        value={studentModal.data.yearLevel || ""}
+                        onChange={(e) =>
+                          setStudentModal({
+                            ...studentModal,
+                            data: {
+                              ...studentModal.data,
+                              yearLevel: e.target.value,
+                            },
+                          })
+                        }
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold"
+                      >
+                        <option>1st Year</option>
+                        <option>2nd Year</option>
+                        <option>3rd Year</option>
+                        <option>4th Year</option>
+                        <option>5th Year</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={studentModal.data.email || ""}
+                      onChange={(e) =>
+                        setStudentModal({
+                          ...studentModal,
+                          data: { ...studentModal.data, email: e.target.value },
+                        })
+                      }
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 font-bold"
+                      placeholder="student@university.edu.ph"
+                    />
+                  </div>
+                  <button
+                    onClick={() => handleSaveStudent(studentModal.data)}
+                    className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 mt-4"
+                  >
+                    {studentModal.mode === "add"
+                      ? "Register Student"
+                      : "Save Changes"}
+                  </button>
                 </div>
-              ))}
+              </Modal>
             </div>
-          </div>
-        );
+          );
+        };
 
         // DASHBOARD TAB
         const renderDashboard = () => {

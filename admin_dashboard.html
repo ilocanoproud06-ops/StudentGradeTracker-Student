@@ -85,24 +85,6 @@
         border: 1px solid rgba(255, 255, 255, 0.3);
       }
 
-      /* Excel-style grid */
-      .grade-grid {
-        display: grid;
-        overflow-x: auto;
-      }
-
-      .grade-cell {
-        min-width: 120px;
-      }
-
-      .student-cell {
-        min-width: 250px;
-        position: sticky;
-        left: 0;
-        z-index: 10;
-        background: white;
-      }
-
       /* Custom scrollbar */
       ::-webkit-scrollbar {
         width: 8px;
@@ -129,7 +111,7 @@
     <script type="text/babel">
       const { useState, useMemo, useEffect } = React;
 
-      // Icons component (using Font Awesome as alternative to lucide)
+      // Icons component using Font Awesome
       const Icons = {
         LayoutDashboard: () => <i className="fas fa-th-large"></i>,
         BookOpen: () => <i className="fas fa-book-open"></i>,
@@ -190,7 +172,7 @@
       // Main App Component
       function App() {
         const [activeTab, setActiveTab] = useState("Grade Entry");
-        const [selectedCourseId, setSelectedCourseId] = useState(1);
+        const [selectedCourseId, setSelectedCourseId] = useState(101);
         const [selectedMonth, setSelectedMonth] = useState("February");
         const [store, setStore] = useState(null);
         const [loading, setLoading] = useState(true);
@@ -213,25 +195,70 @@
 
         // Default data if no store
         const defaultStudents = [
-          { id: 1, studentIdNum: "IT5839", name: "John Brown", program: "IT" },
-          { id: 2, studentIdNum: "CS1234", name: "Jane Smith", program: "CS" },
+          {
+            id: 1,
+            studentIdNum: "2024-0001",
+            name: "Garcia, Maria S.",
+            program: "BSCS",
+          },
+          {
+            id: 2,
+            studentIdNum: "2024-0002",
+            name: "Wilson, James K.",
+            program: "BSIT",
+          },
           {
             id: 3,
-            studentIdNum: "IT5678",
-            name: "Michael Davis",
-            program: "IT",
+            studentIdNum: "2024-0003",
+            name: "Chen, Robert L.",
+            program: "BS MATH",
           },
         ];
 
         const defaultCourses = [
-          { id: 1, title: "Introduction to IT", code: "IT101" },
-          { id: 2, title: "Data Structures", code: "CS201" },
-          { id: 3, title: "Web Development", code: "IT302" },
+          { id: 101, title: "Mathematics 101", code: "MATH101" },
+          { id: 102, title: "Computer Science", code: "CS202" },
+        ];
+
+        const defaultAssessments = [
+          {
+            id: 501,
+            courseId: 101,
+            category: "Written Exam",
+            title: "Prelim Exam",
+            month: "February",
+            hps: 100,
+          },
+          {
+            id: 502,
+            courseId: 101,
+            category: "Written Exam",
+            title: "Quiz 1",
+            month: "February",
+            hps: 50,
+          },
+          {
+            id: 503,
+            courseId: 101,
+            category: "Performance Task",
+            title: "Seatwork",
+            month: "February",
+            hps: 20,
+          },
+          {
+            id: 504,
+            courseId: 102,
+            category: "Laboratory",
+            title: "Lab 1",
+            month: "February",
+            hps: 50,
+          },
         ];
 
         const students = store?.students || defaultStudents;
         const courses = store?.courses || defaultCourses;
         const enrollments = store?.enrollments || [];
+        const assessments = store?.assessments || defaultAssessments;
         const grades = store?.grades || {};
         const hps = store?.hps || {
           quiz: 50,
@@ -246,92 +273,61 @@
           project: 10,
         };
 
-        // Get assessments for the selected course
-        const courseAssessments = useMemo(() => {
-          const allAssessments = store?.assessments || [];
-          return allAssessments.filter((a) => a.courseId === selectedCourseId);
-        }, [store, selectedCourseId]);
-
-        // Filtered assessments for selected month
-        const filteredAssessments = useMemo(() => {
-          let filtered = courseAssessments.filter(
-            (a) => a.month === selectedMonth,
-          );
-          // If no assessments in store, use default ones
-          if (filtered.length === 0) {
-            filtered = [
-              {
-                id: 501,
-                courseId: selectedCourseId,
-                category: "Written Exam",
-                title: "Prelim Exam",
-                month: "February",
-                hps: 100,
-              },
-              {
-                id: 502,
-                courseId: selectedCourseId,
-                category: "Quiz",
-                title: "Quiz 1",
-                month: "February",
-                hps: 50,
-              },
-              {
-                id: 503,
-                courseId: selectedCourseId,
-                category: "Performance Task",
-                title: "Seatwork",
-                month: "February",
-                hps: 20,
-              },
-              {
-                id: 504,
-                courseId: selectedCourseId,
-                category: "Project",
-                title: "Project 1",
-                month: "February",
-                hps: 100,
-              },
-            ];
-          }
-          return filtered;
-        }, [courseAssessments, selectedCourseId, selectedMonth]);
+        // Filtered assessments for selected course and month
+        const filteredAssessments = useMemo(
+          () =>
+            assessments.filter(
+              (a) =>
+                a.courseId === selectedCourseId && a.month === selectedMonth,
+            ),
+          [assessments, selectedCourseId, selectedMonth],
+        );
 
         // Get students enrolled in selected course
         const studentsInCourse = useMemo(() => {
           const enrolledIds = enrollments
             .filter((e) => e.courseId === selectedCourseId)
             .map((e) => e.studentId);
-          // If no enrollments, return all students
           if (enrolledIds.length === 0) {
             return students.slice(0, 3);
           }
           return students.filter((s) => enrolledIds.includes(s.id));
         }, [students, enrollments, selectedCourseId]);
 
+        // State for grades
+        const [localGrades, setLocalGrades] = useState([
+          { id: "g1", studentId: 1, assessmentId: 501, score: 95 },
+          { id: "g2", studentId: 2, assessmentId: 501, score: 88 },
+        ]);
+
         // Get grade for a student and assessment
-        const getGrade = (studentId, assessmentId) => {
-          const key = studentId + "_" + selectedCourseId;
-          const studentGrades = grades[key] || {};
-          // Simple grade lookup - in real app would be more complex
-          return studentGrades[assessmentId] || "";
+        const getScore = (studentId, assessmentId) => {
+          const entry = localGrades.find(
+            (g) => g.studentId === studentId && g.assessmentId === assessmentId,
+          );
+          return entry ? entry.score : "";
         };
 
         // Update grade
         const updateGrade = (studentId, assessmentId, score) => {
           const val = score === "" ? "" : parseFloat(score);
-          const key = studentId + "_" + selectedCourseId;
-          const newGrades = { ...grades };
-          if (!newGrades[key]) newGrades[key] = {};
-          newGrades[key][assessmentId] = val;
-
-          setStore((prev) => ({
-            ...prev,
-            grades: newGrades,
-          }));
-
-          // Save to localStorage
-          SyncManager.quickSave({ ...store, grades: newGrades });
+          setLocalGrades((prev) => {
+            const exists = prev.find(
+              (g) =>
+                g.studentId === studentId && g.assessmentId === assessmentId,
+            );
+            if (exists) {
+              return prev.map((g) =>
+                g.studentId === studentId && g.assessmentId === assessmentId
+                  ? { ...g, score: val }
+                  : g,
+              );
+            }
+            return [
+              ...prev,
+              { id: `g-${Date.now()}`, studentId, assessmentId, score: val },
+            ];
+          });
         };
 
         // Calculate average for a student
@@ -340,7 +336,7 @@
           let totalHps = 0;
 
           filteredAssessments.forEach((a) => {
-            const score = getGrade(studentId, a.id);
+            const score = getScore(studentId, a.id);
             if (score !== "" && score !== null) {
               totalEarned += score;
               totalHps += a.hps;
@@ -494,7 +490,7 @@
                             </div>
                           </td>
                           {filteredAssessments.map((a) => {
-                            const score = getGrade(student.id, a.id);
+                            const score = getScore(student.id, a.id);
                             return (
                               <td
                                 key={a.id}

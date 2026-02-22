@@ -139,31 +139,24 @@
       document.addEventListener(
         "keydown",
         function (e) {
-          // F12
           if (e.key === "F12") {
             e.preventDefault();
           }
-          // Ctrl+Shift+I (Developer Tools)
           if (e.ctrlKey && e.shiftKey && e.key === "I") {
             e.preventDefault();
           }
-          // Ctrl+Shift+J (Console)
           if (e.ctrlKey && e.shiftKey && e.key === "J") {
             e.preventDefault();
           }
-          // Ctrl+U (View Source)
           if (e.ctrlKey && e.key === "u") {
             e.preventDefault();
           }
-          // Ctrl+Shift+C (Inspect Element)
           if (e.ctrlKey && e.shiftKey && e.key === "C") {
             e.preventDefault();
           }
-          // Ctrl+S (Save)
           if (e.ctrlKey && e.key === "s") {
             e.preventDefault();
           }
-          // Ctrl+P (Print)
           if (e.ctrlKey && e.key === "p") {
             e.preventDefault();
           }
@@ -171,7 +164,6 @@
         false,
       );
 
-      // Additional protection: Clear console on load
       console.clear();
 
       document
@@ -182,8 +174,15 @@
             document.getElementById("username").value === "admin" &&
             document.getElementById("password").value === "admin123"
           ) {
-            // Redirect to admin portal
-            window.location.href = "admin_portal.html";
+            // Show options for redirect
+            const choice = confirm(
+              "Login successful!\n\nOK = Go to New Admin Dashboard\nCancel = Go to Classic Admin Portal",
+            );
+            if (choice) {
+              window.location.href = "admin_dashboard.html";
+            } else {
+              window.location.href = "admin_portal.html";
+            }
           } else {
             alert("Invalid credentials");
           }
